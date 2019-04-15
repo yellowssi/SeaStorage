@@ -1,0 +1,4 @@
+# github.com/hyperledger/sawtooth-sdk-go v0.1.1
+github.com/hyperledger/sawtooth-sdk-go/logging
+# github.com/jessevdk/go-flags v1.4.0
+github.com/jessevdk/go-flags

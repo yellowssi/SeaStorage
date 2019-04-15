@@ -1,0 +1,4 @@
+github.com/hyperledger/sawtooth-sdk-go v0.1.1 h1:JWkSrKQ3hLg/C/NEab+nF1uRDQKgImSUcHxXlNBfPjg=
+github.com/hyperledger/sawtooth-sdk-go v0.1.1/go.mod h1:TflUsC2KTduiDoQZMiNPEqZi4m0MK+f2FAdrk3yTNxA=
+github.com/jessevdk/go-flags v1.4.0 h1:4IU2WS7AumrZ/40jfhf4QVDMsQwqA7VEHozFRrGARJA=
+github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
