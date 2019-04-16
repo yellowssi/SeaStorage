@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/brianolson/cbor_go"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
-	"gitlab.com/SeaStorage/SeaStorage-Client/pkg/internal"
+	"gitlab.com/SeaStorage/SeaStorage-Client"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/state"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"math/rand"
@@ -46,7 +48,7 @@ func NewClient(url string, keyFile string) (Client, error) {
 func (c Client) getStatus(batchId string, wait uint) (string, error) {
 
 	// API to call
-	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", internal.BATCH_STATUS_API, batchId, wait)
+	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", main.BATCH_STATUS_API, batchId, wait)
 	response, err := c.sendRequest(apiSuffix, []byte{}, "", "")
 	if err != nil {
 		return "", err
@@ -115,14 +117,14 @@ func (c Client) sendTransaction(verb string, name string, value uint, wait uint)
 	// Construct TransactionHeader
 	rawTransactionHeader := transaction_pb2.TransactionHeader{
 		SignerPublicKey:  c.signer.GetPublicKey().AsHex(),
-		FamilyName:       internal.FAMILY_NAME,
-		FamilyVersion:    internal.FAMILY_VERSION,
+		FamilyName:       main.FAMILY_NAME,
+		FamilyVersion:    main.FAMILY_VERSION,
 		Dependencies:     []string{}, // empty dependency list
 		Nonce:            strconv.Itoa(rand.Int()),
 		BatcherPublicKey: c.signer.GetPublicKey().AsHex(),
 		Inputs:           []string{address},
 		Outputs:          []string{address},
-		PayloadSha512:    crypto.SHA512(string(payload)),
+		PayloadSha512:    crypto.SHA512Hex(crypto.BytesToHex(payload)),
 	}
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 	if err != nil {
@@ -159,7 +161,7 @@ func (c Client) sendTransaction(verb string, name string, value uint, wait uint)
 		waitTime := uint(0)
 		startTime := time.Now()
 		response, err := c.sendRequest(
-			BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM, name)
+			main.BATCH_SUBMIT_API, batchList, main.CONTENT_TYPE_OCTET_STREAM, name)
 		if err != nil {
 			return "", err
 		}
@@ -177,23 +179,21 @@ func (c Client) sendTransaction(verb string, name string, value uint, wait uint)
 	}
 
 	return c.sendRequest(
-		BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM, name)
+		main.BATCH_SUBMIT_API, batchList, main.CONTENT_TYPE_OCTET_STREAM, name)
 }
 
 func (c Client) getPrefix() string {
-	return crypto.SHA512(FAMILY_NAME)[:FAMILY_NAMESPACE_ADDRESS_LENGTH]
+	return string(state.Namespace)
 }
 
 func (c Client) getAddress(name string) string {
-	prefix := c.getPrefix()
-	nameAddress := crypto.SHA512(name + c.signer.GetPublicKey().AsHex())[FAMILY_VERB_ADDRESS_LENGTH:]
-	return prefix + nameAddress
+	return string(state.MakeAddress(state.AddressTypeSea, name, c.signer.GetPublicKey().AsHex()))
 }
 
 func (c Client) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
 
 	// Get list of TransactionHeader signatures
-	transactionSignatures := []string{}
+	var transactionSignatures []string
 	for _, transaction := range transactions {
 		transactionSignatures =
 			append(transactionSignatures, transaction.HeaderSignature)

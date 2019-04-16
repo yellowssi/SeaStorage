@@ -1,4 +1,4 @@
-package internal
+package lib
 
 const (
 	// String literals
@@ -11,8 +11,11 @@ const (
 	VERB_CREATE_DIRECTORY string = "mkdir"
 	VERB_CREATE_FILE      string = "touch"
 	VERB_UPDATE_FILE      string = "update"
-	VERB_DELETE_FILE	  string = "rm"
+	VERB_DELETE_FILE      string = "rm"
 	VERB_STORE_FILE       string = "store"
+	// Content types
+	CONTENT_TYPE_OCTET_STREAM string = "application/octet-stream"
+	CONTENT_TYPE_JSON         string = "application/json"
 	// APIs
 	BATCH_SUBMIT_API string = "batches"
 	BATCH_STATUS_API string = "batch_statuses"
