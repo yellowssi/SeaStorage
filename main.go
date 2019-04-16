@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hyperledger/sawtooth-sdk-go/logging"
 	"github.com/jessevdk/go-flags"
+	"gitlab.com/SeaStorage/SeaStorage-Client/pkg/internal"
 	"os"
 )
 
@@ -34,7 +35,7 @@ func main() {
 	arguments := os.Args[1:]
 	for _, arg := range arguments {
 		if arg == "-V" || arg == "--version" {
-			fmt.Println("Version: " + DISTRIBUTION_VERSION)
+			fmt.Println(internal.DISTRIBUTION_NAME + " (hyperledger sawtooth) version: " + DISTRIBUTION_VERSION)
 			os.Exit(0)
 		}
 	}
