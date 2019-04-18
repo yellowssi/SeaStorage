@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/brianolson/cbor_go"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
