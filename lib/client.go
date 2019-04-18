@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/payload"
 	"gitlab.com/SeaStorage/SeaStorage/state"
 	"gitlab.com/SeaStorage/SeaStorage/storage"
 	"gitlab.com/SeaStorage/SeaStorage/user"
@@ -101,13 +102,7 @@ func (c Client) sendRequest(apiSuffix string, data []byte, contentType string, n
 }
 
 func (c Client) sendTransaction(action uint, name string, pwd string, target string, target2 string, key string, fileInfo storage.FileInfo, hash string, signature user.OperationSignature, wait uint) (string, error) {
-	payloadMap := generateSeaStoragePayload(action, name, pwd, target, target2, key, fileInfo, hash, signature)
-
-	// construct the payload information in CBOR format
-	payloadCbor, err := cbor.Dumps(payloadMap)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to construct CBOR: %v", err))
-	}
+	seaStoragePayload := payload.NewSeaStoragePayload(action, name, pwd, target, target2, key, fileInfo, hash, signature)
 
 	// construct the address
 	address := c.getAddress(name)
@@ -122,7 +117,7 @@ func (c Client) sendTransaction(action uint, name string, pwd string, target str
 		BatcherPublicKey: c.signer.GetPublicKey().AsHex(),
 		Inputs:           []string{address},
 		Outputs:          []string{address},
-		PayloadSha512:    crypto.SHA512Hex(crypto.BytesToHex(payloadCbor)),
+		PayloadSha512:    crypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
 	}
 	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 	if err != nil {
@@ -137,7 +132,7 @@ func (c Client) sendTransaction(action uint, name string, pwd string, target str
 	transaction := transaction_pb2.Transaction{
 		Header:          transactionHeader,
 		HeaderSignature: transactionHeaderSignature,
-		Payload:         []byte(payloadCbor),
+		Payload:         seaStoragePayload.ToBytes(),
 	}
 
 	// Get BatchList
