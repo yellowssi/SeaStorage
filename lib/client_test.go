@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"gitlab.com/SeaStorage/SeaStorage/user"
 	"os"
 	"testing"
 )
@@ -32,7 +31,5 @@ func TestClient_Show(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(u)
-	u = user.GenerateUser()
 	t.Log(u)
 }
