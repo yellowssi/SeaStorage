@@ -75,14 +75,20 @@ func (c Client) Register(name string) error {
 	return nil
 }
 
-//func (c Client) List() (result map[string][]byte, err error) {
-//	apiSuffix := fmt.Sprintf("%s?address=%s", STATE_API, c.getPrefix())
-//	response, err := c.sendRequest(apiSuffix, []byte{}, "", "")
-//	if err != nil {
-//		return
-//	}
-//
-//}
+func (c Client) List(start string, limit uint) (result []interface{}, err error) {
+	apiSuffix := fmt.Sprintf("%s?address=%s", STATE_API, c.getPrefix())
+	if start != "" {
+		apiSuffix = fmt.Sprintf("%s&start=%s", apiSuffix, start)
+	}
+	if limit > 0 {
+		apiSuffix = fmt.Sprintf("%s&limit=%v", apiSuffix, limit)
+	}
+	response, err := c.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
+	if err != nil {
+		return
+	}
+	return response["data"].([]interface{}), nil
+}
 
 func (c Client) Show() (*user.User, error) {
 	apiSuffix := fmt.Sprintf("%s/%s", STATE_API, c.getAddress())
