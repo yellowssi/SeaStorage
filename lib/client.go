@@ -2,70 +2,118 @@ package lib
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/sawtooth-sdk-go/logging"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/payload"
 	"gitlab.com/SeaStorage/SeaStorage/state"
-	"gitlab.com/SeaStorage/SeaStorage/storage"
 	"gitlab.com/SeaStorage/SeaStorage/user"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
+var logger = logging.Get()
+
 type Client struct {
-	url    string
-	signer *signing.Signer
+	Name     string
+	Category string `user:"User" group:"Group" sea:"Sea"`
+	url      string
+	signer   *signing.Signer
 }
 
-func NewClient(url string, keyFile string) (Client, error) {
-	var privateKey signing.PrivateKey
-	if keyFile != "" {
-		// Read private key file
-		privateKeyStr, err := ioutil.ReadFile(keyFile)
-		if err != nil {
-			return Client{}, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
-		}
-		// Get private key object
-		privateKey = signing.NewSecp256k1PrivateKey(privateKeyStr)
-	} else {
-		privateKey = signing.NewSecp256k1Context().NewRandomPrivateKey()
+func NewClient(name string, category string, url string, keyFile string) (Client, error) {
+	if keyFile == "" {
+		return Client{}, errors.New("need a valid key")
 	}
+	// Read private key file
+	privateKeyHex, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return Client{}, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
+	}
+	// Get private key object
+	privateKey := signing.NewSecp256k1PrivateKey(crypto.HexToBytes(string(privateKeyHex)))
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	signer := cryptoFactory.NewSigner(privateKey)
-	return Client{url: url, signer: signer}, nil
+	return Client{Name: name, Category: category, url: url, signer: signer}, nil
 }
 
-func (c Client) getStatus(batchId string, wait uint) (string, error) {
+func (c Client) Register(name string) error {
+	var seaStoragePayload payload.SeaStoragePayload
+	switch c.Category {
+	case "User":
+		seaStoragePayload.Action = payload.CreateUser
+		seaStoragePayload.Target = name
+		c.Name = name
+	case "Group":
+		seaStoragePayload.Name = c.Name
+		seaStoragePayload.Target = name
+		seaStoragePayload.Action = payload.CreateGroup
+	case "Sea":
+		seaStoragePayload.Action = payload.CreateSea
+		seaStoragePayload.Target = name
+	default:
+		return errors.New("client category is invalid")
+	}
+	response, err := c.SendTransaction([]payload.SeaStoragePayload{seaStoragePayload}, 0)
+	if err != nil {
+		return err
+	}
+	logger.Debug(response)
+	return nil
+}
 
+//func (c Client) List() (result map[string][]byte, err error) {
+//	apiSuffix := fmt.Sprintf("%s?address=%s", STATE_API, c.getPrefix())
+//	response, err := c.sendRequest(apiSuffix, []byte{}, "", "")
+//	if err != nil {
+//		return
+//	}
+//
+//}
+
+func (c Client) Show() (*user.User, error) {
+	apiSuffix := fmt.Sprintf("%s/%s", STATE_API, c.getAddress())
+	response, err := c.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
+	if err != nil {
+		return nil, err
+	}
+	data, ok := response["data"]
+	if !ok {
+		return nil, errors.New("error reading as string")
+	}
+	decodedBytes, err := base64.StdEncoding.DecodeString(data.(string))
+	if err != nil {
+		return nil, err
+	}
+	return user.UserFromBytes(decodedBytes)
+}
+
+func (c Client) getStatus(batchId string, wait uint) (map[interface{}]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BATCH_STATUS_API, batchId, wait)
-	response, err := c.sendRequest(apiSuffix, []byte{}, "", "")
+	response, err := c.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	responseMap := make(map[interface{}]interface{})
-	err = yaml.Unmarshal([]byte(response), &responseMap)
-	if err != nil {
-		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))
-	}
-	entry :=
-		responseMap["data"].([]interface{})[0].(map[interface{}]interface{})
-	return fmt.Sprint(entry["status"]), nil
+	entry := response["data"].([]interface{})[0].(map[interface{}]interface{})
+	return entry, nil
 }
 
-func (c Client) sendRequest(apiSuffix string, data []byte, contentType string, name string) (string, error) {
+func (c Client) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[interface{}]interface{}, error) {
 	// Construct url
 	var url string
 	if strings.HasPrefix(c.url, "http://") {
@@ -74,6 +122,10 @@ func (c Client) sendRequest(apiSuffix string, data []byte, contentType string, n
 		url = fmt.Sprintf("http://%s/%s", c.url, apiSuffix)
 	}
 
+	return c.sendRequest(url, data, contentType)
+}
+
+func (c Client) sendRequest(url string, data []byte, contentType string) (map[interface{}]interface{}, error) {
 	// Send request to validator URL
 	var response *http.Response
 	var err error
@@ -83,106 +135,119 @@ func (c Client) sendRequest(apiSuffix string, data []byte, contentType string, n
 		response, err = http.Get(url)
 	}
 	if err != nil {
-		return "", errors.New(
-			fmt.Sprintf("Failed to connect to REST API: %v", err))
+		return nil, errors.New(fmt.Sprintf("Failed to connect to REST API: %v", err))
 	}
 	if response.StatusCode == 404 {
-		return "", errors.New(fmt.Sprintf("No such key: %s", name))
+		return nil, errors.New(fmt.Sprintf("No such endpoint: %s", url))
 	} else if response.StatusCode >= 400 {
-		return "", errors.New(
-			fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))
+		return nil, errors.New(fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))
 	}
 	defer response.Body.Close()
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Error reading response: %v", err))
+		return nil, errors.New(fmt.Sprintf("Error reading response: %v", err))
 	}
-	return string(responseBody), nil
+	responseMap := make(map[interface{}]interface{})
+	err = yaml.Unmarshal(responseBody, &responseMap)
+	if err != nil {
+		return nil, err
+	}
+	return responseMap, nil
 }
 
-func (c Client) sendTransaction(action uint, name string, pwd string, target string, target2 string, key string, fileInfo storage.FileInfo, hash string, signature user.OperationSignature, wait uint) (string, error) {
-	seaStoragePayload := payload.NewSeaStoragePayload(action, name, pwd, target, target2, key, fileInfo, hash, signature)
+func (c Client) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[interface{}]interface{}, error) {
+	var transactions []*transaction_pb2.Transaction
 
-	// construct the address
-	address := c.getAddress(name)
+	for _, seaStoragePayload := range seaStoragePayloads {
+		// construct the address
+		address := c.getAddress()
 
-	// Construct TransactionHeader
-	rawTransactionHeader := transaction_pb2.TransactionHeader{
-		SignerPublicKey:  c.signer.GetPublicKey().AsHex(),
-		FamilyName:       FAMILY_NAME,
-		FamilyVersion:    FAMILY_VERSION,
-		Dependencies:     []string{}, // empty dependency list
-		Nonce:            strconv.Itoa(rand.Int()),
-		BatcherPublicKey: c.signer.GetPublicKey().AsHex(),
-		Inputs:           []string{address},
-		Outputs:          []string{address},
-		PayloadSha512:    crypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
-	}
-	transactionHeader, err := proto.Marshal(&rawTransactionHeader)
-	if err != nil {
-		return "", errors.New(
-			fmt.Sprintf("Unable to serialize transaction header: %v", err))
-	}
+		// Construct TransactionHeader
+		rawTransactionHeader := transaction_pb2.TransactionHeader{
+			SignerPublicKey:  c.signer.GetPublicKey().AsHex(),
+			FamilyName:       FAMILY_NAME,
+			FamilyVersion:    FAMILY_VERSION,
+			Dependencies:     []string{},
+			Nonce:            strconv.Itoa(rand.Int()),
+			BatcherPublicKey: c.signer.GetPublicKey().AsHex(),
+			Inputs:           []string{address},
+			Outputs:          []string{address},
+			PayloadSha512:    crypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
+		}
+		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Unable to serialize transaction header: %v", err))
+		}
 
-	// Signature of TransactionHeader
-	transactionHeaderSignature := hex.EncodeToString(c.signer.Sign(transactionHeader))
+		// Signature of TransactionHeader
+		transactionHeaderSignature := hex.EncodeToString(c.signer.Sign(transactionHeader))
 
-	// Construct Transaction
-	transaction := transaction_pb2.Transaction{
-		Header:          transactionHeader,
-		HeaderSignature: transactionHeaderSignature,
-		Payload:         seaStoragePayload.ToBytes(),
+		// Construct Transaction
+		transaction := &transaction_pb2.Transaction{
+			Header:          transactionHeader,
+			HeaderSignature: transactionHeaderSignature,
+			Payload:         seaStoragePayload.ToBytes(),
+		}
+
+		transactions = append(transactions, transaction)
 	}
 
 	// Get BatchList
-	rawBatchList, err := c.createBatchList([]*transaction_pb2.Transaction{&transaction})
+	rawBatchList, err := c.createBatchList(transactions)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Unable to construct batch list: %v", err))
+		return nil, errors.New(fmt.Sprintf("Unable to construct batch list: %v", err))
 	}
 	batchId := rawBatchList.Batches[0].HeaderSignature
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Unable to serialize batch list: %v", err))
+		return nil, errors.New(fmt.Sprintf("Unable to serialize batch list: %v", err))
 	}
 
 	if wait > 0 {
 		waitTime := uint(0)
 		startTime := time.Now()
-		response, err := c.sendRequest(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM, name)
+		response, err := c.sendRequestByAPISuffix(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for waitTime < wait {
 			status, err := c.getStatus(batchId, wait-waitTime)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			waitTime = uint(time.Now().Sub(startTime))
-			if status != "PENDING" {
+			if status["status"].(string) != "PENDING" {
 				return response, nil
 			}
 		}
 		return response, nil
 	}
 
-	return c.sendRequest(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM, name)
+	return c.sendRequestByAPISuffix(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM)
 }
 
 func (c Client) getPrefix() string {
-	return string(state.Namespace)
+	return state.Namespace
 }
 
-func (c Client) getAddress(name string) string {
-	return string(state.MakeAddress(state.AddressTypeSea, name, c.signer.GetPublicKey().AsHex()))
+func (c Client) getAddress() string {
+	switch c.Category {
+	case "User":
+		return state.MakeAddress(state.AddressTypeUser, c.Name, c.signer.GetPublicKey().AsHex())
+	case "Group":
+		return state.MakeAddress(state.AddressTypeGroup, c.Name, c.signer.GetPublicKey().AsHex())
+	case "Sea":
+		return state.MakeAddress(state.AddressTypeSea, c.Name, c.signer.GetPublicKey().AsHex())
+	default:
+		return ""
+	}
 }
 
 func (c Client) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
-
 	// Get list of TransactionHeader signatures
 	var transactionSignatures []string
 	for _, transaction := range transactions {
-		transactionSignatures =
-			append(transactionSignatures, transaction.HeaderSignature)
+		transactionSignatures = append(transactionSignatures, transaction.HeaderSignature)
 	}
 
 	// Construct BatchHeader
@@ -192,13 +257,11 @@ func (c Client) createBatchList(transactions []*transaction_pb2.Transaction) (ba
 	}
 	batchHeader, err := proto.Marshal(&rawBatchHeader)
 	if err != nil {
-		return batch_pb2.BatchList{}, errors.New(
-			fmt.Sprintf("Unable to serialize batch header: %v", err))
+		return batch_pb2.BatchList{}, errors.New(fmt.Sprintf("Unable to serialize batch header: %v", err))
 	}
 
 	// Signature of BatchHeader
-	batchHeaderSignature := hex.EncodeToString(
-		c.signer.Sign(batchHeader))
+	batchHeaderSignature := hex.EncodeToString(c.signer.Sign(batchHeader))
 
 	// Construct Batch
 	batch := batch_pb2.Batch{
@@ -211,4 +274,24 @@ func (c Client) createBatchList(transactions []*transaction_pb2.Transaction) (ba
 	return batch_pb2.BatchList{
 		Batches: []*batch_pb2.Batch{&batch},
 	}, nil
+}
+
+func GenerateKey(keyName string, path string) {
+	cont := signing.NewSecp256k1Context()
+	pri := cont.NewRandomPrivateKey()
+	pub := cont.GetPublicKey(pri)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err = os.MkdirAll(path, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
+	err := ioutil.WriteFile(path+keyName+".priv", []byte(pri.AsHex()), 0600)
+	if err != nil {
+		panic(err)
+	}
+	err = ioutil.WriteFile(path+keyName+".pub", []byte(pub.AsHex()), 0600)
+	if err != nil {
+		panic(err)
+	}
 }
