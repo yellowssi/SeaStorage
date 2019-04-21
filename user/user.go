@@ -29,14 +29,14 @@ func NewUserClient(name string, url string, keyFile string) (*UserClient, error)
 func GetKeyFilePath() string {
 	username, err := user.Current()
 	if err != nil {
-		return "./SeaStorage.priv"
+		return "./" + lib.FamilyName + ".priv"
 	}
 	return path.Join(username.HomeDir, ".SeaStorage", "keys", username.Username+".priv")
 }
 
 func Register(name string, url string, keyFile string) (c *UserClient, err error) {
 	if keyFile == "" {
-		lib.GenerateKey(lib.FamilyName, lib.DefaultKeyFilePath)
+		lib.GenerateKey(lib.FamilyName, GetKeyFilePath())
 		c, err = NewUserClient(name, url, keyFile)
 		if err != nil {
 			return nil, err

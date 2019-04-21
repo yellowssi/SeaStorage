@@ -1,9 +1,5 @@
 package lib
 
-import "os"
-
-var DefaultKeyFilePath, _ = os.UserHomeDir()
-
 const (
 	// String literals
 	CommandName      string = "sst"
