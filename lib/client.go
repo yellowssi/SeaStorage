@@ -27,6 +27,12 @@ import (
 
 var logger = logging.Get()
 
+const (
+	StatusPending   = "PENDING"
+	StatusCommitted = "COMMITTED"
+	StatusInvalid   = "INVALID"
+)
+
 type Client struct {
 	Name     string
 	Category string `user:"User" group:"Group" sea:"Sea"`
@@ -50,7 +56,7 @@ func NewClient(name string, category string, url string, keyFile string) (Client
 	return Client{Name: name, Category: category, url: url, signer: signer}, nil
 }
 
-func (c Client) Register(name string) error {
+func (c Client) Register(name string) (map[interface{}]interface{}, error) {
 	var seaStoragePayload payload.SeaStoragePayload
 	switch c.Category {
 	case "User":
@@ -65,18 +71,22 @@ func (c Client) Register(name string) error {
 		seaStoragePayload.Action = payload.CreateSea
 		seaStoragePayload.Target = name
 	default:
-		return errors.New("client category is invalid")
+		return nil, errors.New("client category is invalid")
 	}
 	response, err := c.SendTransaction([]payload.SeaStoragePayload{seaStoragePayload}, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	logger.Debug(response)
-	return nil
+	if c.waitingForRegister(60) {
+		return response, nil
+	} else {
+		return response, errors.New("waiting for register")
+	}
 }
 
 func (c Client) List(start string, limit uint) (result []interface{}, err error) {
-	apiSuffix := fmt.Sprintf("%s?address=%s", STATE_API, c.getPrefix())
+	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, c.getPrefix())
 	if start != "" {
 		apiSuffix = fmt.Sprintf("%s&start=%s", apiSuffix, start)
 	}
@@ -91,7 +101,7 @@ func (c Client) List(start string, limit uint) (result []interface{}, err error)
 }
 
 func (c Client) Show() (*user.User, error) {
-	apiSuffix := fmt.Sprintf("%s/%s", STATE_API, c.getAddress())
+	apiSuffix := fmt.Sprintf("%s/%s", StateApi, c.getAddress())
 	response, err := c.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
@@ -109,7 +119,7 @@ func (c Client) Show() (*user.User, error) {
 
 func (c Client) getStatus(batchId string, wait uint) (map[interface{}]interface{}, error) {
 	// API to call
-	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BATCH_STATUS_API, batchId, wait)
+	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
 	response, err := c.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
@@ -171,8 +181,8 @@ func (c Client) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, 
 		// Construct TransactionHeader
 		rawTransactionHeader := transaction_pb2.TransactionHeader{
 			SignerPublicKey:  c.signer.GetPublicKey().AsHex(),
-			FamilyName:       FAMILY_NAME,
-			FamilyVersion:    FAMILY_VERSION,
+			FamilyName:       FamilyName,
+			FamilyVersion:    FamilyVersion,
 			Dependencies:     []string{},
 			Nonce:            strconv.Itoa(rand.Int()),
 			BatcherPublicKey: c.signer.GetPublicKey().AsHex(),
@@ -212,7 +222,7 @@ func (c Client) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, 
 	if wait > 0 {
 		waitTime := uint(0)
 		startTime := time.Now()
-		response, err := c.sendRequestByAPISuffix(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM)
+		response, err := c.sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 		if err != nil {
 			return nil, err
 		}
@@ -229,7 +239,7 @@ func (c Client) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, 
 		return response, nil
 	}
 
-	return c.sendRequestByAPISuffix(BATCH_SUBMIT_API, batchList, CONTENT_TYPE_OCTET_STREAM)
+	return c.sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 }
 
 func (c Client) getPrefix() string {
@@ -281,6 +291,32 @@ func (c Client) createBatchList(transactions []*transaction_pb2.Transaction) (ba
 		Batches: []*batch_pb2.Batch{&batch},
 	}, nil
 }
+
+func (c Client) waitingForRegister(wait uint) bool {
+	result := make(chan bool)
+	defer close(result)
+	go func() {
+		ticker := time.NewTicker(time.Duration(1) * time.Second)
+		i := uint(0)
+		for i <= wait {
+			select {
+			case <-ticker.C:
+				u, err := c.Show()
+				if err == nil && u != nil {
+					result <- true
+					return
+				}
+				i++
+			}
+		}
+		result <- false
+	}()
+	return <-result
+}
+
+// TODO: Subscribing events
+//func (c Client) subscribingToEvents(action string, id string) error {
+//}
 
 func GenerateKey(keyName string, path string) {
 	cont := signing.NewSecp256k1Context()

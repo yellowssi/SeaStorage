@@ -2,25 +2,26 @@ package lib
 
 const (
 	// String literals
-	FAMILY_NAME       string = "SeaStorage"
-	FAMILY_VERSION    string = "1.0"
-	DISTRIBUTION_NAME string = "SeaStorage-Client"
-	DEFAULT_URL       string = "http://127.0.0.1:8008"
+	CommandName      string = "sst"
+	FamilyName       string = "SeaStorage"
+	FamilyVersion    string = "1.0"
+	DistributionName string = "SeaStorage-Client"
+	DefaultUrl       string = "http://127.0.0.1:8008"
 	// Verbs
-	VERB_REGISTER         string = "register"
-	VERB_CREATE_DIRECTORY string = "mkdir"
-	VERB_CREATE_FILE      string = "touch"
-	VERB_UPDATE_FILE      string = "update"
-	VERB_DELETE_FILE      string = "rm"
-	VERB_STORE_FILE       string = "store"
+	VerbRegister        string = "register"
+	VerbCreateDirectory string = "mkdir"
+	VerbCreateFile      string = "touch"
+	VerbUpdateFile      string = "update"
+	VerbDeleteFile      string = "rm"
+	VerbStoreFile       string = "store"
 	// Content types
-	CONTENT_TYPE_OCTET_STREAM string = "application/octet-stream"
-	CONTENT_TYPE_JSON         string = "application/json"
+	ContentTypeOctetStream string = "application/octet-stream"
+	ContentTypeJson        string = "application/json"
 	// APIs
-	BATCH_SUBMIT_API string = "batches"
-	BATCH_STATUS_API string = "batch_statuses"
-	STATE_API        string = "state"
+	BatchSubmitApi string = "batches"
+	BatchStatusApi string = "batch_statuses"
+	StateApi       string = "state"
 	// Integer literals
-	FAMILY_NAMESPACE_ADDRESS_LENGTH uint = 6
-	FAMILY_VERB_ADDRESS_LENGTH      uint = 64
+	FamilyNamespaceAddressLength uint = 6
+	FamilyVerbAddressLength      uint = 64
 )

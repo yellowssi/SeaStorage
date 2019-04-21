@@ -14,8 +14,8 @@ func init() {
 	c, _ = NewClient("Test", "User", "http://localhost:8008", "./key/test.priv")
 }
 
-func TestClient_SendTransaction(t *testing.T) {
-	err := c.Register("Test")
+func TestClient_Register(t *testing.T) {
+	_, err := c.Register("Test")
 	if err != nil {
 		t.Error(err)
 	}
@@ -34,5 +34,7 @@ func TestClient_List(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(response[0].(map[interface{}]interface{}))
+	if len(response) > 0 {
+		t.Log(response[0].(map[interface{}]interface{}))
+	}
 }

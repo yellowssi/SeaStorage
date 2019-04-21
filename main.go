@@ -18,16 +18,16 @@ type Command interface {
 
 type Opts struct {
 	Verbose []bool `short:"v" long:"verbose" description:"Enable more verbose output"`
-	Version bool `short:"V" long:"version" description:"Display version information"`
+	Version bool   `short:"V" long:"version" description:"Display version information"`
 }
 
-var DISTRIBUTION_VERSION string
+var DistributionVersion string
 
 var logger = logging.Get()
 
 func init() {
-	if len(DISTRIBUTION_VERSION) == 0 {
-		DISTRIBUTION_VERSION = "Unknown"
+	if len(DistributionVersion) == 0 {
+		DistributionVersion = "Unknown"
 	}
 }
 
@@ -35,17 +35,16 @@ func main() {
 	arguments := os.Args[1:]
 	for _, arg := range arguments {
 		if arg == "-V" || arg == "--version" {
-			fmt.Println(lib.DISTRIBUTION_NAME + " (hyperledger sawtooth) version: " + DISTRIBUTION_VERSION)
+			fmt.Println(lib.DistributionName + " (hyperledger sawtooth) version: " + DistributionVersion)
 			os.Exit(0)
 		}
 	}
 
 	var opts Opts
 	parser := flags.NewParser(&opts, flags.Default)
-	parser.Command.Name = "SeaStorage"
+	parser.Command.Name = lib.CommandName
 
-	commands := []Command {
-	}
+	commands := []Command{}
 
 	for _, cmd := range commands {
 		err := cmd.Register(parser.Command)
