@@ -28,6 +28,12 @@ import (
 var logger = logging.Get()
 
 const (
+	ClientCategoryUser  = "User"
+	ClientCategoryGroup = "Group"
+	ClientCategorySea   = "Sea"
+)
+
+const (
 	StatusPending   = "PENDING"
 	StatusCommitted = "COMMITTED"
 	StatusInvalid   = "INVALID"
@@ -41,6 +47,9 @@ type Client struct {
 }
 
 func NewClient(name string, category string, url string, keyFile string) (Client, error) {
+	if name == "" {
+		return Client{}, errors.New("need a valid name")
+	}
 	if keyFile == "" {
 		return Client{}, errors.New("need a valid key")
 	}
