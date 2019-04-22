@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var c Client
+var c ClientFramework
 
 func init() {
 	if _, err := os.Stat("./key"); os.IsNotExist(err) {
@@ -30,7 +30,7 @@ func TestClient_Show(t *testing.T) {
 }
 
 func TestClient_List(t *testing.T) {
-	response, err := c.List("", 0)
+	response, err := c.ListAll("", 0)
 	if err != nil {
 		t.Error(err)
 	}

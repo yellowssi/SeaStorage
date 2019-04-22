@@ -2,17 +2,18 @@ package user
 
 import (
 	"gitlab.com/SeaStorage/SeaStorage-Client/lib"
+	"gitlab.com/SeaStorage/SeaStorage/storage"
 	seaStorageUser "gitlab.com/SeaStorage/SeaStorage/user"
 	"os/user"
 	"path"
 )
 
-type UserClient struct {
-	User   *seaStorageUser.User
-	Client lib.Client
+type Client struct {
+	User            *seaStorageUser.User
+	ClientFramework lib.ClientFramework
 }
 
-func NewUserClient(name string, url string, keyFile string) (*UserClient, error) {
+func NewUserClient(name string, url string, keyFile string) (*Client, error) {
 	if url == "" {
 		url = lib.DefaultUrl
 	}
@@ -23,7 +24,7 @@ func NewUserClient(name string, url string, keyFile string) (*UserClient, error)
 	if err != nil {
 		return nil, err
 	}
-	return &UserClient{nil, c}, nil
+	return &Client{nil, c}, nil
 }
 
 func GetKeyFilePath() string {
@@ -34,7 +35,7 @@ func GetKeyFilePath() string {
 	return path.Join(username.HomeDir, ".SeaStorage", "keys", username.Username+".priv")
 }
 
-func Register(name string, url string, keyFile string) (c *UserClient, err error) {
+func Register(name string, url string, keyFile string) (c *Client, err error) {
 	if keyFile == "" {
 		lib.GenerateKey(lib.FamilyName, GetKeyFilePath())
 		c, err = NewUserClient(name, url, keyFile)
@@ -47,14 +48,50 @@ func Register(name string, url string, keyFile string) (c *UserClient, err error
 			return nil, err
 		}
 	}
-	_, err = c.Client.Register(name)
+	_, err = c.ClientFramework.Register(name)
 	if err != nil {
 		return nil, err
 	}
-	u, err := c.Client.Show()
+	u, err := c.ClientFramework.Show()
 	if err != nil {
 		return nil, err
 	}
 	c.User = u
 	return c, nil
+}
+
+func (c Client) CreateDirectory() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) CreateFile() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) UpdateName() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) UpdateFileInfo() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) UpdateFileKey() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) ShareFiles() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) PublicKey() (map[interface{}]interface{}, error) {
+
+}
+
+func (c Client) ListDirectory() ([]storage.INodeInfo, error) {
+
+}
+
+func (c Client) GetFiles() error {
+
 }
