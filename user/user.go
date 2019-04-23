@@ -2,7 +2,6 @@ package user
 
 import (
 	"gitlab.com/SeaStorage/SeaStorage-Client/lib"
-	"gitlab.com/SeaStorage/SeaStorage/storage"
 	seaStorageUser "gitlab.com/SeaStorage/SeaStorage/user"
 	"os/user"
 	"path"
@@ -58,40 +57,4 @@ func Register(name string, url string, keyFile string) (c *Client, err error) {
 	}
 	c.User = u
 	return c, nil
-}
-
-func (c Client) CreateDirectory() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) CreateFile() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) UpdateName() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) UpdateFileInfo() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) UpdateFileKey() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) ShareFiles() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) PublicKey() (map[interface{}]interface{}, error) {
-
-}
-
-func (c Client) ListDirectory() ([]storage.INodeInfo, error) {
-
-}
-
-func (c Client) GetFiles() error {
-
 }

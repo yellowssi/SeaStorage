@@ -28,9 +28,8 @@ import (
 var logger = logging.Get()
 
 const (
-	ClientCategoryUser  = "User"
-	ClientCategoryGroup = "Group"
-	ClientCategorySea   = "Sea"
+	ClientCategoryUser = true
+	ClientCategorySea  = false
 )
 
 const (
@@ -39,14 +38,19 @@ const (
 	StatusInvalid   = "INVALID"
 )
 
+var (
+	TransactionNotCommittedError = errors.New("waiting for committed")
+	TransactionInvalidError      = errors.New("invalid transaction")
+)
+
 type ClientFramework struct {
 	Name     string
-	Category string // User, Sea, Group
+	Category bool // true: User, false: Sea
 	url      string
 	signer   *signing.Signer
 }
 
-func NewClient(name string, category string, url string, keyFile string) (ClientFramework, error) {
+func NewClient(name string, category bool, url string, keyFile string) (ClientFramework, error) {
 	if name == "" {
 		return ClientFramework{}, errors.New("need a valid name")
 	}
@@ -67,20 +71,14 @@ func NewClient(name string, category string, url string, keyFile string) (Client
 
 func (cf ClientFramework) Register(name string) (map[interface{}]interface{}, error) {
 	var seaStoragePayload payload.SeaStoragePayload
-	switch cf.Category {
-	case "User":
+	if cf.Category {
 		seaStoragePayload.Action = payload.CreateUser
 		seaStoragePayload.Target = name
 		cf.Name = name
-	case "Group":
-		seaStoragePayload.Name = cf.Name
-		seaStoragePayload.Target = name
-		seaStoragePayload.Action = payload.CreateGroup
-	case "Sea":
+	} else {
 		seaStoragePayload.Action = payload.CreateSea
 		seaStoragePayload.Target = name
-	default:
-		return nil, errors.New("client category is invalid")
+		cf.Name = name
 	}
 	response, err := cf.SendTransaction([]payload.SeaStoragePayload{seaStoragePayload}, 0)
 	if err != nil {
@@ -90,7 +88,7 @@ func (cf ClientFramework) Register(name string) (map[interface{}]interface{}, er
 	if cf.waitingForRegister(60) {
 		return response, nil
 	} else {
-		return response, errors.New("waiting for register")
+		return response, TransactionNotCommittedError
 	}
 }
 
@@ -268,15 +266,10 @@ func (cf ClientFramework) getPrefix() string {
 }
 
 func (cf ClientFramework) getAddress() string {
-	switch cf.Category {
-	case "User":
+	if cf.Category {
 		return state.MakeAddress(state.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
-	case "Group":
-		return state.MakeAddress(state.AddressTypeGroup, cf.Name, cf.signer.GetPublicKey().AsHex())
-	case "Sea":
+	} else {
 		return state.MakeAddress(state.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
-	default:
-		return ""
 	}
 }
 

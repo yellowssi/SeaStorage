@@ -14,4 +14,16 @@ const (
 	BatchSubmitApi string = "batches"
 	BatchStatusApi string = "batch_statuses"
 	StateApi       string = "state"
+	// Verbs
+	VerbRegister        string = "register"
+	VerbCreateDirectory string = "mkdir"
+	VerbCreateFile      string = "touch"
+	VerbRename          string = "rename"
+	VerbUpdateFileInfo  string = "update-info"
+	VerbUpdateFileKey   string = "update-key"
+	VerbShareFiles      string = "share"
+	VerbPublicKey       string = "public"
+	VerbStoreFile       string = "store"
+	VerbDeleteFiles     string = "rm"
+	VerbListDirectory   string = "ls"
 )
