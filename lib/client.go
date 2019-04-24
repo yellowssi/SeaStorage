@@ -11,15 +11,16 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/payload"
-	"gitlab.com/SeaStorage/SeaStorage/state"
-	"gitlab.com/SeaStorage/SeaStorage/user"
+	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
+	"gitlab.com/SeaStorage/SeaStorage-TP/state"
+	"gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -50,26 +51,26 @@ type ClientFramework struct {
 	signer   *signing.Signer
 }
 
-func NewClient(name string, category bool, url string, keyFile string) (ClientFramework, error) {
+func NewClient(name string, category bool, url string, keyFile string) (*ClientFramework, error) {
 	if name == "" {
-		return ClientFramework{}, errors.New("need a valid name")
+		return nil, errors.New("need a valid name")
 	}
 	if keyFile == "" {
-		return ClientFramework{}, errors.New("need a valid key")
+		return nil, errors.New("need a valid key")
 	}
 	// Read private key file
 	privateKeyHex, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		return ClientFramework{}, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
+		return nil, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
 	}
 	// Get private key object
 	privateKey := signing.NewSecp256k1PrivateKey(crypto.HexToBytes(string(privateKeyHex)))
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	signer := cryptoFactory.NewSigner(privateKey)
-	return ClientFramework{Name: name, Category: category, url: url, signer: signer}, nil
+	return &ClientFramework{Name: name, Category: category, url: url, signer: signer}, nil
 }
 
-func (cf ClientFramework) Register(name string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) Register(name string) (map[interface{}]interface{}, error) {
 	var seaStoragePayload payload.SeaStoragePayload
 	if cf.Category {
 		seaStoragePayload.Action = payload.CreateUser
@@ -92,7 +93,7 @@ func (cf ClientFramework) Register(name string) (map[interface{}]interface{}, er
 	}
 }
 
-func (cf ClientFramework) list(address string, start string, limit uint) (result []interface{}, err error) {
+func (cf *ClientFramework) list(address string, start string, limit uint) (result []interface{}, err error) {
 	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, address)
 	if start != "" {
 		apiSuffix = fmt.Sprintf("%s&start=%s", apiSuffix, start)
@@ -107,19 +108,19 @@ func (cf ClientFramework) list(address string, start string, limit uint) (result
 	return response["data"].([]interface{}), nil
 }
 
-func (cf ClientFramework) ListAll(start string, limit uint) ([]interface{}, error) {
+func (cf *ClientFramework) ListAll(start string, limit uint) ([]interface{}, error) {
 	return cf.list(cf.getPrefix(), start, limit)
 }
 
-func (cf ClientFramework) ListUsers(start string, limit uint) ([]interface{}, error) {
+func (cf *ClientFramework) ListUsers(start string, limit uint) ([]interface{}, error) {
 	return cf.list(cf.getPrefix()+state.UserNamespace, start, limit)
 }
 
-func (cf ClientFramework) ListSeas(start string, limit uint) ([]interface{}, error) {
+func (cf *ClientFramework) ListSeas(start string, limit uint) ([]interface{}, error) {
 	return cf.list(cf.getPrefix()+state.SeaNamespace, start, limit)
 }
 
-func (cf ClientFramework) Show() (*user.User, error) {
+func (cf *ClientFramework) Show() (*user.User, error) {
 	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.getAddress())
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
@@ -136,7 +137,7 @@ func (cf ClientFramework) Show() (*user.User, error) {
 	return user.UserFromBytes(decodedBytes)
 }
 
-func (cf ClientFramework) getStatus(batchId string, wait uint) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[interface{}]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
@@ -148,7 +149,7 @@ func (cf ClientFramework) getStatus(batchId string, wait uint) (map[interface{}]
 	return entry, nil
 }
 
-func (cf ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[interface{}]interface{}, error) {
 	// Construct url
 	var url string
 	if strings.HasPrefix(cf.url, "http://") {
@@ -160,7 +161,7 @@ func (cf ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, 
 	return cf.sendRequest(url, data, contentType)
 }
 
-func (cf ClientFramework) sendRequest(url string, data []byte, contentType string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) sendRequest(url string, data []byte, contentType string) (map[interface{}]interface{}, error) {
 	// Send request to validator URL
 	var response *http.Response
 	var err error
@@ -190,7 +191,7 @@ func (cf ClientFramework) sendRequest(url string, data []byte, contentType strin
 	return responseMap, nil
 }
 
-func (cf ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[interface{}]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -261,11 +262,11 @@ func (cf ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStorag
 	return cf.sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 }
 
-func (cf ClientFramework) getPrefix() string {
+func (cf *ClientFramework) getPrefix() string {
 	return state.Namespace
 }
 
-func (cf ClientFramework) getAddress() string {
+func (cf *ClientFramework) getAddress() string {
 	if cf.Category {
 		return state.MakeAddress(state.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
 	} else {
@@ -273,7 +274,7 @@ func (cf ClientFramework) getAddress() string {
 	}
 }
 
-func (cf ClientFramework) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
+func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
 	// Get list of TransactionHeader signatures
 	var transactionSignatures []string
 	for _, transaction := range transactions {
@@ -306,7 +307,7 @@ func (cf ClientFramework) createBatchList(transactions []*transaction_pb2.Transa
 	}, nil
 }
 
-func (cf ClientFramework) waitingForRegister(wait uint) bool {
+func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 	result := make(chan bool)
 	defer close(result)
 	go func() {
@@ -329,24 +330,34 @@ func (cf ClientFramework) waitingForRegister(wait uint) bool {
 }
 
 // TODO: Subscribing events
-//func (c ClientFramework) subscribingToEvents(action string, id string) error {
+//func (c *ClientFramework) subscribingToEvents(action string, id string) error {
 //}
 
-func GenerateKey(keyName string, path string) {
+func (cf *ClientFramework) Whoami() {
+	if cf.Category {
+		fmt.Println("User name: " + cf.Name)
+	} else {
+		fmt.Println("Sea name: " + cf.Name)
+	}
+	fmt.Println("Public key: " + cf.signer.GetPublicKey().AsHex())
+	fmt.Println("Sawtooth address: " + cf.getAddress())
+}
+
+func GenerateKey(keyName string, keyPath string) {
 	cont := signing.NewSecp256k1Context()
 	pri := cont.NewRandomPrivateKey()
 	pub := cont.GetPublicKey(pri)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err = os.MkdirAll(path, 0755)
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		err = os.MkdirAll(keyPath, 0755)
 		if err != nil {
 			panic(err)
 		}
 	}
-	err := ioutil.WriteFile(path+keyName+".priv", []byte(pri.AsHex()), 0600)
+	err := ioutil.WriteFile(path.Join(keyPath, keyName+".priv"), []byte(pri.AsHex()), 0600)
 	if err != nil {
 		panic(err)
 	}
-	err = ioutil.WriteFile(path+keyName+".pub", []byte(pub.AsHex()), 0600)
+	err = ioutil.WriteFile(path.Join(keyPath, keyName+".pub"), []byte(pub.AsHex()), 0600)
 	if err != nil {
 		panic(err)
 	}
