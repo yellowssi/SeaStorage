@@ -20,7 +20,7 @@ require (
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
-	gitlab.com/SeaStorage/SeaStorage-TP v0.0.0-20190424123826-00a917debfd1
+	gitlab.com/SeaStorage/SeaStorage-TP v0.0.0-20190424131801-9268df2e237a
 	golang.org/x/crypto v0.0.0-20190422183909-d864b10871cd // indirect
 	golang.org/x/net v0.0.0-20190424112056-4829fb13d2c6 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58 // indirect
