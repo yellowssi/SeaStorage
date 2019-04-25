@@ -1,7 +1,6 @@
 package user
 
 import (
-	"github.com/hyperledger/sawtooth-sdk-go/logging"
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	seaStorageUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
@@ -9,8 +8,6 @@ import (
 	"path"
 	"strings"
 )
-
-var logger = logging.Get()
 
 type Client struct {
 	User            *seaStorageUser.User
@@ -24,8 +21,6 @@ func NewUserClient(name string, url string, keyFile string) (*Client, error) {
 		return nil, err
 	}
 	u, _ := c.Show()
-	logger.Debugf("ClientFramework: %v", c)
-	logger.Debugf("User: %v", u)
 	return &Client{User: u, PWD: "/", ClientFramework: c}, nil
 }
 
@@ -64,7 +59,6 @@ func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) 
 	if !strings.HasSuffix(p, "/") {
 		p += "/"
 	}
-	logger.Debug("Create Directory Path:", p)
 	err := c.User.Root.CreateDirectory(p)
 	if err != nil {
 		return nil, err

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/sawtooth-sdk-go/logging"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
@@ -25,8 +24,6 @@ import (
 	"strings"
 	"time"
 )
-
-var logger = logging.Get()
 
 const (
 	ClientCategoryUser = true
@@ -85,7 +82,6 @@ func (cf *ClientFramework) Register(name string) (map[interface{}]interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	logger.Debug(response)
 	if cf.waitingForRegister(60) {
 		return response, nil
 	} else {
