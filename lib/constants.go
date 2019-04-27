@@ -1,5 +1,7 @@
 package lib
 
+import "crypto/aes"
+
 const (
 	// String literals
 	CommandName      string = "sst"
@@ -15,4 +17,8 @@ const (
 	BatchSubmitApi string = "batches"
 	BatchStatusApi string = "batch_statuses"
 	StateApi       string = "state"
+	// AES CTR
+	IvSize     = aes.BlockSize
+	BufferSize = 4096
+	HmacSize   = 32
 )

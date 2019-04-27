@@ -4,6 +4,7 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	seaStorageUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"path"
 	"strings"
@@ -75,7 +76,7 @@ func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) 
 }
 
 func (c *Client) CreateFile(p string, target string) (map[interface{}]interface{}, error) {
-	info, err := lib.GenerateFileInfo(target)
+	info, err := crypto.GenerateFileInfo(target)
 	if err != nil {
 		return nil, err
 	}

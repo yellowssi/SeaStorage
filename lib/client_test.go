@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var c ClientFramework
+var c *ClientFramework
 
 func init() {
 	if _, err := os.Stat("./key"); os.IsNotExist(err) {
