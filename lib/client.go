@@ -117,7 +117,7 @@ func (cf *ClientFramework) ListSeas(start string, limit uint) ([]interface{}, er
 }
 
 func (cf *ClientFramework) Show() (*user.User, error) {
-	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, cf.getAddress())
+	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.getAddress())
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
