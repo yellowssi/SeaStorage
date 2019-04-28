@@ -75,8 +75,8 @@ func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) 
 	return response, err
 }
 
-func (c *Client) CreateFile(p string, target string) (map[interface{}]interface{}, error) {
-	info, err := crypto.GenerateFileInfo(target)
+func (c *Client) CreateFile(p string, target string, dataShards, parShards int) (map[interface{}]interface{}, error) {
+	info, err := crypto.GenerateFileInfo(target, dataShards, parShards)
 	if err != nil {
 		return nil, err
 	}

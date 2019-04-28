@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"fmt"
 	"github.com/klauspost/reedsolomon"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -17,12 +15,63 @@ import (
 	"path"
 )
 
-func GenerateFileInfo(target string) (storage.FileInfo, error) {
-	return storage.FileInfo{}, nil
+func init() {
+	if _, err := os.Stat(lib.DefaultTmpPath); os.IsNotExist(err) {
+		err = os.MkdirAll(lib.DefaultTmpPath, 0755)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
-// AES CTR With HMAC File Encryption
-func EncryptFile(inFile, outFile *os.File, keyAes, keyHmac []byte) (hash string, err error) {
+func GenerateFileInfo(target string, dataShards, parShards int) (info storage.FileInfo, err error) {
+	// File Encrypt
+	inFile, err := os.Open(target)
+	if err != nil {
+		return
+	}
+	inFileInfo, err := inFile.Stat()
+	if err != nil {
+		return
+	}
+	outFile, err := os.OpenFile(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix), os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	keyAes := crypto.GenerateRandomAESKey(lib.AESKeySize)
+	hash, err := EncryptFile(inFile, outFile, keyAes)
+	inFile.Close()
+	outFile.Close()
+
+	// Split File
+	f, err := os.Open(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix))
+	if err != nil {
+		return
+	}
+	err = os.Mkdir(path.Join(lib.DefaultTmpPath, hash), 0755)
+	hashes, err := SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
+	if err != nil {
+		return
+	}
+	fragments := make([]*storage.Fragment, dataShards+parShards)
+	for i := range fragments {
+		fragments[i] = &storage.Fragment{
+			Hash: hashes[i],
+			Seas: make([]*storage.FragmentSea, 0),
+		}
+	}
+	info = storage.FileInfo{
+		Name: inFileInfo.Name(),
+		Size: uint(inFileInfo.Size()),
+		Hash: hash,
+		Key: crypto.BytesToHex(keyAes),
+		Fragments: fragments,
+	}
+	return
+}
+
+// AES CTR File Encryption
+func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
 		return
@@ -38,12 +87,10 @@ func EncryptFile(inFile, outFile *os.File, keyAes, keyHmac []byte) (hash string,
 		return
 	}
 	ctr := cipher.NewCTR(block, iv)
-	h := hmac.New(sha256.New, keyHmac)
 	_, err = outFile.Write(iv)
 	if err != nil {
 		return
 	}
-	h.Write(iv)
 
 	hashes := make([][]byte, 0)
 	buf := make([]byte, lib.BufferSize)
@@ -56,48 +103,11 @@ func EncryptFile(inFile, outFile *os.File, keyAes, keyHmac []byte) (hash string,
 
 		outBuf := make([]byte, n)
 		ctr.XORKeyStream(outBuf, buf[:n])
-		h.Write(outBuf)
 		hashes = append(hashes, crypto.SHA512BytesFromBytes(outBuf))
 		_, _ = outFile.Write(outBuf)
 	}
-	_, _ = outFile.Write(h.Sum(nil))
 	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return
-}
-
-// Verify HMAC
-func VerifyHmac(inFile *os.File, keyHmac []byte) (bool, error) {
-	info, err := inFile.Stat()
-	if err != nil {
-		return false, err
-	}
-	size := info.Size()
-	fileHmac := make([]byte, lib.HmacSize)
-	_, err = inFile.ReadAt(fileHmac, size-lib.HmacSize)
-	if err != nil {
-		return false, err
-	}
-	iv := make([]byte, lib.IvSize)
-	_, err = inFile.Read(iv)
-	if err != nil {
-		return false, err
-	}
-
-	h := hmac.New(sha256.New, keyHmac)
-	h.Write(iv)
-	buf := make([]byte, lib.BufferSize)
-
-	for i := lib.IvSize; i < int(size)-lib.HmacSize; i += lib.BufferSize {
-		n, err := inFile.ReadAt(buf, int64(i))
-		if err != nil && err != io.EOF {
-			return false, err
-		}
-		if i == int(size)-lib.HmacSize-lib.BufferSize || err == io.EOF {
-			n = int(size) - i - lib.HmacSize
-		}
-		h.Write(buf[:n])
-	}
-	return hmac.Equal(fileHmac, h.Sum(nil)), nil
 }
 
 // AES CTR File Decryption
@@ -117,12 +127,12 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 	buf := make([]byte, lib.BufferSize)
 	hashes := make([][]byte, 0)
 
-	for i := lib.IvSize; i < int(size)-lib.HmacSize; i += lib.BufferSize {
+	for i := lib.IvSize; i < int(size); i += lib.BufferSize {
 		n, err := inFile.ReadAt(buf, int64(i))
 		if err != nil && err != io.EOF {
 			return hash, err
 		}
-		if i == int(size)-lib.HmacSize-lib.BufferSize || err == io.EOF {
+		if i == int(size)-lib.BufferSize || err == io.EOF {
 			n = int(size) - i - lib.HmacSize
 		}
 
@@ -130,10 +140,6 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 		outBuf := make([]byte, n)
 		ctr.XORKeyStream(outBuf, buf[:n])
 		_, _ = outFile.Write(outBuf)
-
-		if err == io.EOF {
-			break
-		}
 	}
 	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return

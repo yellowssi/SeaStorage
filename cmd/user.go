@@ -171,10 +171,8 @@ var userCmd = &cobra.Command{
 			case "touch":
 				if len(commands) < 2 {
 					fmt.Println(errors.New("missing operand"))
-				} else if len(commands) > 2 {
-					fmt.Println(errors.New("invalid path"))
 				} else {
-					response, err := cli.CreateFile(commands[1], commands[2])
+					response, err := cli.CreateFile(commands[1], commands[2], 5, 3)
 					if err != nil {
 						fmt.Println(err)
 					} else {

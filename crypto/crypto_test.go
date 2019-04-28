@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var key = crypto.GenerateRandomAESKey(256)
+var key = crypto.GenerateRandomAESKey(lib.AESKeySize)
 
 func init() {
 	if _, err := os.Stat("./key"); os.IsNotExist(err) {
@@ -24,23 +24,11 @@ func TestEncryptFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	hash, err := EncryptFile(inFile, outFile, key, []byte("test"))
+	hash, err := EncryptFile(inFile, outFile, key)
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(hash)
-}
-
-func TestVerifyHmac(t *testing.T) {
-	inFile, err := os.Open("./key/test.enc")
-	if err != nil {
-		t.Error(err)
-	}
-	result, err := VerifyHmac(inFile, []byte("test"))
-	if err != nil {
-		t.Error(err)
-	}
-	t.Log(result)
 }
 
 func TestDecryptFile(t *testing.T) {
@@ -93,4 +81,12 @@ func TestSliceDecodeFile(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(hashes)
+}
+
+func TestGenerateFileInfo(t *testing.T) {
+	info, err := GenerateFileInfo("./key/test.priv", 5, 3)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(info)
 }
