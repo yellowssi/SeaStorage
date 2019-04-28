@@ -103,6 +103,12 @@ var userCmd = &cobra.Command{
 			} else if cli.User == nil {
 				fmt.Println("need register firstly")
 				continue
+			} else {
+				err = cli.Sync()
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
 			}
 			switch commands[0] {
 			case "whoami":
@@ -169,7 +175,7 @@ var userCmd = &cobra.Command{
 					}
 				}
 			case "touch":
-				if len(commands) < 2 {
+				if len(commands) < 3 {
 					fmt.Println(errors.New("missing operand"))
 				} else {
 					response, err := cli.CreateFile(commands[1], commands[2], 5, 3)

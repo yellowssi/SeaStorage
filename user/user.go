@@ -30,12 +30,7 @@ func (c *Client) Register() (err error) {
 	if err != nil {
 		return err
 	}
-	u, err := c.ClientFramework.Show()
-	if err != nil {
-		return err
-	}
-	c.User = u
-	return nil
+	return c.Sync()
 }
 
 func (c *Client) ChangePWD(dst string) error {
@@ -69,13 +64,10 @@ func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) 
 		Name:   c.ClientFramework.Name,
 		PWD:    p,
 	}}, lib.DefaultWait)
-	if err == nil {
-		err = c.sync()
-	}
 	return response, err
 }
 
-func (c *Client) CreateFile(p string, target string, dataShards, parShards int) (map[interface{}]interface{}, error) {
+func (c *Client) CreateFile(target, p string, dataShards, parShards int) (map[interface{}]interface{}, error) {
 	info, err := crypto.GenerateFileInfo(target, dataShards, parShards)
 	if err != nil {
 		return nil, err
@@ -96,9 +88,6 @@ func (c *Client) CreateFile(p string, target string, dataShards, parShards int) 
 		PWD:      p,
 		FileInfo: info,
 	}}, lib.DefaultWait)
-	if err == nil {
-		err = c.sync()
-	}
 	return response, err
 }
 
@@ -109,14 +98,10 @@ func (c *Client) ListDirectory(p string) ([]storage.INodeInfo, error) {
 	if !strings.HasSuffix(p, "/") {
 		p += "/"
 	}
-	err := c.sync()
-	if err != nil {
-		return nil, err
-	}
 	return c.User.Root.ListDirectory(p)
 }
 
-func (c *Client) sync() error {
+func (c *Client) Sync() error {
 	u, err := c.ClientFramework.Show()
 	if err != nil {
 		return err
