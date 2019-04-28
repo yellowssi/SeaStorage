@@ -20,6 +20,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/user"
 	"os"
 	"strconv"
@@ -62,6 +63,7 @@ var userCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		var response map[string]interface{}
 		for {
 			prompt := promptui.Prompt{
 				Label:     cli.PWD + " ",
@@ -79,6 +81,7 @@ var userCmd = &cobra.Command{
 					return errors.New(fmt.Sprintf("command not found: %v", commands[0]))
 				},
 			}
+			response = nil
 			err = nil
 			input, err := prompt.Run()
 			if err != nil {
@@ -136,30 +139,7 @@ var userCmd = &cobra.Command{
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					fmt.Println("Total", len(iNodes), "items.")
-					w := new(tabwriter.Writer)
-					w.Init(os.Stdout, 0, 8, 2, '\t', 0)
-					var category string
-					for _, iNode := range iNodes {
-						if iNode.IsDir {
-							category = "Dir"
-						} else {
-							category = "File"
-						}
-						_, err := fmt.Fprintln(w, strings.Join([]string{
-							category,
-							iNode.Name,
-							strconv.Itoa(int(iNode.Size)),
-						}, "\t"))
-						if err != nil {
-							fmt.Println(err)
-							break
-						}
-					}
-					err = w.Flush()
-					if err != nil {
-						fmt.Println(err)
-					}
+					printINodeInfo(iNodes)
 				}
 			case "mkdir":
 				if len(commands) < 2 {
@@ -167,23 +147,74 @@ var userCmd = &cobra.Command{
 				} else if len(commands) > 2 {
 					fmt.Println(errors.New("invalid path"))
 				} else {
-					response, err := cli.CreateDirectory(commands[1])
+					response, err = cli.CreateDirectory(commands[1])
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						fmt.Println(response)
+						lib.PrintResponse(response)
 					}
 				}
 			case "touch":
 				if len(commands) < 3 {
 					fmt.Println(errors.New("missing operand"))
 				} else {
-					response, err := cli.CreateFile(commands[1], commands[2], 5, 3)
+					response, err = cli.CreateFile(commands[1], commands[2], 5, 3)
 					if err != nil {
 						fmt.Println(err)
 					} else {
 						fmt.Println(response)
 					}
+				}
+			case "rm":
+				if len(commands) > 2 {
+					fmt.Println("invalid path")
+					continue
+				}
+				iNode, err := cli.GetINode(commands[1])
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				switch iNode.(type) {
+				case *storage.Directory:
+					confirmPrompt := &promptui.Prompt{
+						Label:     fmt.Sprintf("Remove directory %s? [y/N]", commands[1]),
+						Templates: commandTemplates,
+						Default:   "n",
+					}
+					conf, err := confirmPrompt.Run()
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					switch conf {
+					case "y", "Y":
+						response, err = cli.DeleteDirectory(commands[1])
+					default:
+						continue
+					}
+				case *storage.File:
+					confirmPrompt := &promptui.Prompt{
+						Label:     fmt.Sprintf("Remove file %s? [y/N]", commands[1]),
+						Templates: commandTemplates,
+						Default:   "n",
+					}
+					conf, err := confirmPrompt.Run()
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					switch conf {
+					case "y", "Y":
+						response, err = cli.DeleteFile(commands[1])
+					default:
+						continue
+					}
+				}
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					lib.PrintResponse(response)
 				}
 			}
 		}
@@ -202,4 +233,31 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// userCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+func printINodeInfo(iNodes []storage.INodeInfo) {
+	fmt.Println("Total", len(iNodes), "items.")
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
+	var category string
+	for _, iNode := range iNodes {
+		if iNode.IsDir {
+			category = "Dir"
+		} else {
+			category = "File"
+		}
+		_, err := fmt.Fprintln(w, strings.Join([]string{
+			category,
+			iNode.Name,
+			strconv.Itoa(int(iNode.Size)),
+		}, "\t"))
+		if err != nil {
+			fmt.Println(err)
+			break
+		}
+	}
+	err := w.Flush()
+	if err != nil {
+		fmt.Println(err)
+	}
 }

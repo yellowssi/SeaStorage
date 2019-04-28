@@ -22,5 +22,21 @@ func TestClient_Register(t *testing.T) {
 }
 
 func TestClient_ChangePWD(t *testing.T) {
-	t.Log(path.Join("/a/b/c", "..", ".", "d"))
+	t.Log(path.Join("/a/b/c", "/d", ".", "a"))
+}
+
+func TestClient_CreateDirectory(t *testing.T) {
+	response, err := cli.CreateDirectory("/home/SeaStorage")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(response)
+}
+
+func TestClient_GetINode(t *testing.T) {
+	iNode, err := cli.GetINode("/home/SeaStorage")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(iNode)
 }

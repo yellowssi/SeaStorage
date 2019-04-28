@@ -48,7 +48,20 @@ func (c *Client) ChangePWD(dst string) error {
 	return nil
 }
 
-func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) {
+func (c *Client) GetINode(p string) (storage.INode, error) {
+	if !strings.HasPrefix(p, "/") {
+		p = path.Join(c.PWD, p)
+	}
+	if !strings.HasSuffix(p, "/") {
+		p += "/"
+	}
+	pathParams := strings.Split(p, "/")
+	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	return c.User.Root.GetINode(p, name)
+}
+
+func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
 	}
@@ -67,7 +80,7 @@ func (c *Client) CreateDirectory(p string) (map[interface{}]interface{}, error) 
 	return response, err
 }
 
-func (c *Client) CreateFile(target, p string, dataShards, parShards int) (map[interface{}]interface{}, error) {
+func (c *Client) CreateFile(target, p string, dataShards, parShards int) (map[string]interface{}, error) {
 	info, err := crypto.GenerateFileInfo(target, dataShards, parShards)
 	if err != nil {
 		return nil, err
@@ -99,6 +112,52 @@ func (c *Client) ListDirectory(p string) ([]storage.INodeInfo, error) {
 		p += "/"
 	}
 	return c.User.Root.ListDirectory(p)
+}
+
+func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
+	if !strings.HasPrefix(p, "/") {
+		p = path.Join(c.PWD, p)
+	}
+	if !strings.HasSuffix(p, "/") {
+		p += "/"
+	}
+	pathParams := strings.Split(p, "/")
+	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	err := c.User.Root.DeleteDirectory(p, name)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+		Action:   payload.UserDeleteDirectory,
+		Name:     c.ClientFramework.Name,
+		PWD:      p,
+		Target:   name,
+	}}, lib.DefaultWait)
+	return response, err
+}
+
+func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
+	if !strings.HasPrefix(p, "/") {
+		p = path.Join(c.PWD, p)
+	}
+	if !strings.HasSuffix(p, "/") {
+		p += "/"
+	}
+	pathParams := strings.Split(p, "/")
+	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	err := c.User.Root.DeleteFile(p, name)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+		Action:   payload.UserDeleteFile,
+		Name:     c.ClientFramework.Name,
+		PWD:      p,
+		Target:   name,
+	}}, lib.DefaultWait)
+	return response, err
 }
 
 func (c *Client) Sync() error {

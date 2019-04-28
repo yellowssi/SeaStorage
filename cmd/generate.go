@@ -38,7 +38,7 @@ var generateCmd = &cobra.Command{
 		pathPrompt := &promptui.Prompt{
 			Label:     "Key Path (default: $HOME/.SeaStorage/keys) ",
 			Templates: commandTemplates,
-			Default: path.Join(u.HomeDir, ".SeaStorage", "keys"),
+			Default:   path.Join(u.HomeDir, ".SeaStorage", "keys"),
 		}
 		keyFilePath, err := pathPrompt.Run()
 		if err != nil {
@@ -48,7 +48,7 @@ var generateCmd = &cobra.Command{
 		namePrompt := &promptui.Prompt{
 			Label:     "Key name (default: $USERNAME) ",
 			Templates: commandTemplates,
-			Default: u.Username,
+			Default:   u.Username,
 		}
 		keyFileName, err := namePrompt.Run()
 		if err != nil {
@@ -71,8 +71,7 @@ var generateCmd = &cobra.Command{
 			default:
 				return
 			}
-		}
-		if _, err = os.Stat(path.Join(keyFilePath, keyFileName+".priv")); err == nil {
+		} else if _, err = os.Stat(path.Join(keyFilePath, keyFileName+".pub")); err == nil {
 			result, err := confirmPrompt.Run()
 			if err != nil {
 				fmt.Println(err)
@@ -83,7 +82,6 @@ var generateCmd = &cobra.Command{
 			default:
 				return
 			}
-
 		}
 		lib.GenerateKey(keyFileName, keyFilePath)
 	},

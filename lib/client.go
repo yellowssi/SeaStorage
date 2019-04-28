@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -14,7 +15,6 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/state"
 	"gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -67,7 +67,7 @@ func NewClient(name string, category bool, url string, keyFile string) (*ClientF
 	return &ClientFramework{Name: name, Category: category, url: url, signer: signer}, nil
 }
 
-func (cf *ClientFramework) Register(name string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
 	var seaStoragePayload payload.SeaStoragePayload
 	if cf.Category {
 		seaStoragePayload.Action = payload.CreateUser
@@ -133,7 +133,7 @@ func (cf *ClientFramework) Show() (*user.User, error) {
 	return user.UserFromBytes(decodedBytes)
 }
 
-func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
@@ -141,11 +141,11 @@ func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[interface{}
 		return nil, err
 	}
 
-	entry := response["data"].([]interface{})[0].(map[interface{}]interface{})
+	entry := response["data"].([]interface{})[0].(map[string]interface{})
 	return entry, nil
 }
 
-func (cf *ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[string]interface{}, error) {
 	// Construct url
 	var url string
 	if strings.HasPrefix(cf.url, "http://") {
@@ -157,7 +157,7 @@ func (cf *ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte,
 	return cf.sendRequest(url, data, contentType)
 }
 
-func (cf *ClientFramework) sendRequest(url string, data []byte, contentType string) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) sendRequest(url string, data []byte, contentType string) (map[string]interface{}, error) {
 	// Send request to validator URL
 	var response *http.Response
 	var err error
@@ -179,15 +179,15 @@ func (cf *ClientFramework) sendRequest(url string, data []byte, contentType stri
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error reading response: %v", err))
 	}
-	responseMap := make(map[interface{}]interface{})
-	err = yaml.Unmarshal(responseBody, &responseMap)
+	responseMap := make(map[string]interface{})
+	err = json.Unmarshal(responseBody, &responseMap)
 	if err != nil {
 		return nil, err
 	}
 	return responseMap, nil
 }
 
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[interface{}]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -357,4 +357,12 @@ func GenerateKey(keyName string, keyPath string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func PrintResponse(response map[string]interface{}) {
+	data, err := json.MarshalIndent(response, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(data))
 }
