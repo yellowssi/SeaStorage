@@ -4,15 +4,17 @@ import "crypto/aes"
 
 const (
 	// String literals
-	CommandName      string = "sst"
-	FamilyName       string = "SeaStorage"
-	FamilyVersion    string = "1.0"
-	DistributionName string = "SeaStorage-ClientFramework"
-	DefaultUrl       string = "http://127.0.0.1:8008"
-	DefaultTmpPath   string = "/tmp/SeaStorage"
-	DefaultWait      uint   = 60
-	AESKeySize       int    = 256
-	EncryptSuffix    string = ".enc"
+	FamilyName        string = "SeaStorage"
+	FamilyVersion     string = "1.0.0"
+	DefaultListenPort int    = 5001
+	ProtocolID        string = "/SeaStorage/1.0.0"
+	DefaultUrl        string = "http://127.0.0.1:8008"
+	DefaultTmpPath    string = "/tmp/SeaStorage"
+	DefaultWait       uint   = 60
+	AESKeySize        int    = 256
+	EncryptSuffix     string = ".enc"
+	DefaultDataShards int    = 5
+	DefaultParShards  int    = 3
 	// Content types
 	ContentTypeOctetStream string = "application/octet-stream"
 	ContentTypeJson        string = "application/json"

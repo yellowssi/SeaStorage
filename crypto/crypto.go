@@ -40,8 +40,8 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	}
 	keyAes := crypto.GenerateRandomAESKey(lib.AESKeySize)
 	hash, err := EncryptFile(inFile, outFile, keyAes)
-	inFile.Close()
-	outFile.Close()
+	_ = inFile.Close()
+	_ = outFile.Close()
 
 	// Split File
 	f, err := os.Open(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix))
@@ -53,6 +53,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	if err != nil {
 		return
 	}
+	_ = os.Remove(outFile.Name())
 	fragments := make([]*storage.Fragment, dataShards+parShards)
 	for i := range fragments {
 		fragments[i] = &storage.Fragment{
@@ -61,10 +62,10 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 		}
 	}
 	info = storage.FileInfo{
-		Name: inFileInfo.Name(),
-		Size: uint(inFileInfo.Size()),
-		Hash: hash,
-		Key: crypto.BytesToHex(keyAes),
+		Name:      inFileInfo.Name(),
+		Size:      uint(inFileInfo.Size()),
+		Hash:      hash,
+		Key:       crypto.BytesToHex(keyAes),
 		Fragments: fragments,
 	}
 	return

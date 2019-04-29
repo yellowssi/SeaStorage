@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	seaStorageUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
@@ -80,25 +81,28 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
-func (c *Client) CreateFile(target, p string, dataShards, parShards int) (map[string]interface{}, error) {
-	info, err := crypto.GenerateFileInfo(target, dataShards, parShards)
+func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[string]interface{}, error) {
+	if !strings.HasPrefix(src, "/") {
+		return nil, errors.New("the source path should be full path")
+	}
+	info, err := crypto.GenerateFileInfo(src, dataShards, parShards)
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
+	if !strings.HasPrefix(dst, "/") {
+		dst = path.Join(c.PWD, dst)
 	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
+	if !strings.HasSuffix(dst, "/") {
+		dst += "/"
 	}
-	err = c.User.Root.CreateFile(p, info)
+	err = c.User.Root.CreateFile(dst, info)
 	if err != nil {
 		return nil, err
 	}
 	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
 		Action:   payload.UserCreateFile,
 		Name:     c.ClientFramework.Name,
-		PWD:      p,
+		PWD:      dst,
 		FileInfo: info,
 	}}, lib.DefaultWait)
 	return response, err
@@ -129,10 +133,10 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
-		Action:   payload.UserDeleteDirectory,
-		Name:     c.ClientFramework.Name,
-		PWD:      p,
-		Target:   name,
+		Action: payload.UserDeleteDirectory,
+		Name:   c.ClientFramework.Name,
+		PWD:    p,
+		Target: name,
 	}}, lib.DefaultWait)
 	return response, err
 }
@@ -152,10 +156,10 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
-		Action:   payload.UserDeleteFile,
-		Name:     c.ClientFramework.Name,
-		PWD:      p,
-		Target:   name,
+		Action: payload.UserDeleteFile,
+		Name:   c.ClientFramework.Name,
+		PWD:    p,
+		Target: name,
 	}}, lib.DefaultWait)
 	return response, err
 }

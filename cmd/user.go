@@ -51,7 +51,7 @@ var userCommands = []string{
 var userCmd = &cobra.Command{
 	Use:   "user",
 	Short: "SeaStorage User Command Client",
-	Long:  `SeaStorage User Command Client is a platform support
+	Long: `SeaStorage User Command Client is a platform support
 			communicating with the transaction processor.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if name == "" {
@@ -158,7 +158,7 @@ var userCmd = &cobra.Command{
 				if len(commands) < 3 {
 					fmt.Println(errors.New("missing operand"))
 				} else {
-					response, err = cli.CreateFile(commands[1], commands[2], 5, 3)
+					response, err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
 					if err != nil {
 						fmt.Println(err)
 					} else {

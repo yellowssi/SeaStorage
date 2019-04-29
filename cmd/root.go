@@ -32,7 +32,7 @@ var keyFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "SeaStorage",
+	Use:   lib.FamilyName,
 	Short: "Decentralized cloud storage application",
 	Long: `SeaStorage is a decentralized cloud storage application.
 		   This application is a tool for store files on a P2P
