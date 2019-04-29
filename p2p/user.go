@@ -1,4 +1,4 @@
-package sea
+package p2p
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
-func SeaHandler(priv, listenHost string, listenPort int) {
+func UserHandler(priv, listenHost string, listenPort int) {
 	privateKey, err := crypto.UnmarshalSecp256k1PrivateKey(crypto2.HexToBytes(priv))
 	if err != nil {
 		panic(err)
@@ -23,20 +23,20 @@ func SeaHandler(priv, listenHost string, listenPort int) {
 	if err != nil {
 		panic(err)
 	}
-	host.SetStreamHandler(protocol.ID(lib.ProtocolID), handleStream)
+	host.SetStreamHandler(protocol.ID(lib.ProtocolID), userHandleStream)
 }
 
-func handleStream(s inet.Stream) {
+func userHandleStream(s inet.Stream) {
 	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
 
-	go readData(rw)
-	go writeData(rw)
+	go userReadData(rw)
+	go userWriteData(rw)
 }
 
-func readData(rw *bufio.ReadWriter) {
+func userReadData(rw *bufio.ReadWriter) {
 
 }
 
-func writeData(rw *bufio.ReadWriter) {
+func userWriteData(rw *bufio.ReadWriter) {
 
 }

@@ -13,10 +13,14 @@ require (
 	github.com/klauspost/reedsolomon v1.9.1
 	github.com/libp2p/go-libp2p v0.0.20
 	github.com/libp2p/go-libp2p-crypto v0.0.1
+	github.com/libp2p/go-libp2p-host v0.0.1
 	github.com/libp2p/go-libp2p-net v0.0.2
+	github.com/libp2p/go-libp2p-peerstore v0.0.5
+	github.com/libp2p/go-libp2p-protocol v0.0.1
 	github.com/manifoldco/promptui v0.3.2
 	github.com/mattn/go-isatty v0.0.7 // indirect
 	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5 // indirect
+	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/nicksnyder/go-i18n v1.10.0 // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
