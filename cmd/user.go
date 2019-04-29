@@ -162,7 +162,7 @@ var userCmd = &cobra.Command{
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						fmt.Println(response)
+						lib.PrintResponse(response)
 					}
 				}
 			case "rm":

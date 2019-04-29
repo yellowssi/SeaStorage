@@ -53,7 +53,6 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	if err != nil {
 		return
 	}
-	_ = os.Remove(outFile.Name())
 	fragments := make([]*storage.Fragment, dataShards+parShards)
 	for i := range fragments {
 		fragments[i] = &storage.Fragment{
@@ -179,7 +178,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	}
 	input := make([]io.Reader, dataShards)
 	for i := range data {
-		out[i].Close()
+		_ = out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
 			return hashes, err
@@ -198,7 +197,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 
 	hashes = make([]string, dataShards+parShards)
 	for i := range out {
-		out[i].Close()
+		_ = out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
 			return hashes, err
@@ -208,7 +207,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 		if err != nil {
 			return hashes, err
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	return
 }
