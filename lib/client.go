@@ -117,7 +117,7 @@ func (cf *ClientFramework) ListSeas(start string, limit uint) ([]interface{}, er
 }
 
 func (cf *ClientFramework) GetData() ([]byte, error) {
-	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.getAddress())
+	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.GetAddress())
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 
 	for _, seaStoragePayload := range seaStoragePayloads {
 		// construct the address
-		address := cf.getAddress()
+		address := cf.GetAddress()
 
 		// Construct TransactionHeader
 		rawTransactionHeader := transaction_pb2.TransactionHeader{
@@ -204,7 +204,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 			BatcherPublicKey: cf.signer.GetPublicKey().AsHex(),
 			Inputs:           []string{address},
 			Outputs:          []string{address},
-			PayloadSha512:    crypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
+			PayloadSha512:    tpCrypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 		if err != nil {
@@ -262,7 +262,7 @@ func (cf *ClientFramework) getPrefix() string {
 	return tpState.Namespace
 }
 
-func (cf *ClientFramework) getAddress() string {
+func (cf *ClientFramework) GetAddress() string {
 	if cf.Category {
 		return tpState.MakeAddress(tpState.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
 	} else {
@@ -344,7 +344,7 @@ func (cf *ClientFramework) Whoami() {
 		fmt.Println("Sea name: " + cf.Name)
 	}
 	fmt.Println("Public key: " + cf.signer.GetPublicKey().AsHex())
-	fmt.Println("Sawtooth address: " + cf.getAddress())
+	fmt.Println("Sawtooth address: " + cf.GetAddress())
 }
 
 func GenerateKey(keyName string, keyPath string) {

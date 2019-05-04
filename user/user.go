@@ -3,7 +3,7 @@ package user
 import (
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
+	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
@@ -32,11 +32,11 @@ func NewUserClient(name string, url string, keyFile string) (*Client, error) {
 	var u *tpUser.User
 	userBytes, _ := c.GetData()
 	if userBytes != nil {
-		log.Info().Msg(fmt.Sprintf("user login success: %s", name))
+		logrus.WithField("username", name).Info("user login success")
 		u, err = tpUser.UserFromBytes(userBytes)
 		if err != nil {
 			u = nil
-			log.Error().Msg(err.Error())
+			logrus.Error(err)
 		}
 	}
 	return &Client{User: u, PWD: "/", ClientFramework: c}, nil
@@ -47,6 +47,11 @@ func (c *Client) Register() (err error) {
 	if err != nil {
 		return err
 	}
+	logrus.WithFields(logrus.Fields{
+		"name": c.ClientFramework.Name,
+		"public key": c.ClientFramework.GetPublicKey(),
+		"address": c.ClientFramework.GetAddress(),
+	}).Info("user register success")
 	return c.Sync()
 }
 
@@ -297,7 +302,7 @@ func (c *Client) uploadFiles(fileInfo storage.FileInfo, src, dst, name string, s
 		go func(signature tpUser.OperationSignature) {
 			err = p2p.UploadFile(f, seas[i], signature)
 			if err != nil {
-				log.Error().Msg(err.Error())
+				logrus.WithField("hash", fileInfo.Fragments[i].Hash).Error(err)
 			}
 		}(*signature)
 	}

@@ -21,7 +21,7 @@ import (
 	"os/user"
 	"path"
 
-	"github.com/rs/zerolog"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -57,20 +57,14 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	logrus.SetFormatter(&logrus.TextFormatter{})
+	logrus.SetOutput(os.Stdout)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&url, "url", "u", lib.DefaultUrl, "the sawtooth rest api")
 	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -98,9 +92,9 @@ func initConfig() {
 	}
 
 	if debug {
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		logrus.SetLevel(logrus.DebugLevel)
 	} else {
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		logrus.SetLevel(logrus.WarnLevel)
 	}
 }
 
