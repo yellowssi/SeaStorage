@@ -25,25 +25,6 @@ func SeaHandler(priv, listenHost string, listenPort int) {
 		panic(err)
 	}
 	host.SetStreamHandler(protocol.ID(lib.ProtocolID), seaHandleStream)
-
-	publicKeyBytes, err := privateKey.GetPublic().Bytes()
-	if err != nil {
-		panic(err)
-	}
-	peerChan := initMDNS(ctx, host, crypto2.BytesToHex(publicKeyBytes))
-	peer := <-peerChan
-	stream, err := host.NewStream(ctx, peer.ID, protocol.ID(lib.ProtocolID))
-	if err != nil {
-		fmt.Println("Stream open failed:", err)
-	} else {
-		rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-		go seaWriteData(rw)
-		go seaReadData(rw)
-		fmt.Println("Connected to:", peer)
-	}
-
-	select {}
 }
 
 func seaHandleStream(s inet.Stream) {

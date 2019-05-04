@@ -9,7 +9,7 @@ import (
 var cli *Client
 
 func init() {
-	cli, _ = NewUserClient("Test", lib.DefaultUrl, "../lib/key/test.priv")
+	cli, _ = NewUserClient("Test", lib.DefaultUrl, "../lib/test/test.priv")
 }
 
 func TestClient_Register(t *testing.T) {
@@ -39,4 +39,32 @@ func TestClient_GetINode(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(iNode)
+}
+
+func TestClient_CreateFile(t *testing.T) {
+	response, err := cli.CreateFile("/etc/hostname", "/home/SeaStorage", lib.DefaultDataShards, lib.DefaultParShards)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(response)
+}
+
+func TestClient_DownloadFiles(t *testing.T) {
+	cli.DownloadFiles("/home/SeaStorage/hostname", "./test")
+}
+
+func TestClient_DeleteFile(t *testing.T) {
+	response, err := cli.DeleteFile("/home/SeaStorage/hostname")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(response)
+}
+
+func TestClient_DeleteDirectory(t *testing.T) {
+	response, err := cli.DeleteDirectory("/home")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(response)
 }

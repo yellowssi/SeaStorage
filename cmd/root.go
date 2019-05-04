@@ -21,22 +21,26 @@ import (
 	"os/user"
 	"path"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-var name string
-var url string
-var keyFile string
+var (
+	cfgFile string
+	name    string
+	url     string
+	keyFile string
+	debug   bool
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   lib.FamilyName,
 	Short: "Decentralized cloud storage application",
 	Long: `SeaStorage is a decentralized cloud storage application.
-		   This application is a tool for store files on a P2P
-		   network based on hyperledger sawtooth`,
+This application is a tool for store files on a P2P
+network based on hyperledger sawtooth.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -53,14 +57,16 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.SeaStorage/config.yaml)")
-	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", "", "the name of user/sea")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
+	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&url, "url", "u", lib.DefaultUrl, "the sawtooth rest api")
-	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity (default is $HOME/.SeaStorage/keys/$USERNAME.priv)")
+	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -90,6 +96,21 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+}
+
+func GetDefaultUserName() string {
+	u, err := user.Current()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return u.Username
 }
 
 func GetDefaultKeyFile() string {

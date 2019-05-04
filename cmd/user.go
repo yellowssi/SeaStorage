@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/manifoldco/promptui"
@@ -52,7 +53,7 @@ var userCmd = &cobra.Command{
 	Use:   "user",
 	Short: "SeaStorage User Command Client",
 	Long: `SeaStorage User Command Client is a platform support
-			communicating with the transaction processor.`,
+communicating with the transaction processor.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if name == "" {
 			fmt.Println(errors.New("the name of user/sea is required"))
@@ -166,7 +167,10 @@ var userCmd = &cobra.Command{
 					}
 				}
 			case "rm":
-				if len(commands) > 2 {
+				if len(commands) < 2 {
+					fmt.Println("missing operand")
+					continue
+				} else if len(commands) > 2 {
 					fmt.Println("invalid path")
 					continue
 				}
@@ -216,6 +220,27 @@ var userCmd = &cobra.Command{
 				} else {
 					lib.PrintResponse(response)
 				}
+			case "get":
+				if len(commands) < 2 {
+					fmt.Println(errors.New("missing operand"))
+				} else if len(commands) > 2 {
+					fmt.Println(errors.New("invalid path"))
+				} else {
+					iNode, err := cli.GetINode(commands[1])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printINode(iNode)
+					}
+				}
+			case "download":
+				if len(commands) < 3 {
+					fmt.Println(errors.New("missing operand"))
+				} else if len(commands) > 3 {
+					fmt.Println(errors.New("invalid path"))
+				} else {
+					cli.DownloadFiles(commands[1], commands[2])
+				}
 			}
 		}
 	},
@@ -259,5 +284,14 @@ func printINodeInfo(iNodes []storage.INodeInfo) {
 	err := w.Flush()
 	if err != nil {
 		fmt.Println(err)
+	}
+}
+
+func printINode(iNode storage.INode) {
+	data, err := json.MarshalIndent(iNode, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(data))
 	}
 }

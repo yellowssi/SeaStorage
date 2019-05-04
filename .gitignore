@@ -20,4 +20,4 @@ gen### Go template
 *.out
 
 /vendor
-key
+test

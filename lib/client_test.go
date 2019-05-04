@@ -8,10 +8,10 @@ import (
 var c *ClientFramework
 
 func init() {
-	if _, err := os.Stat("./key"); os.IsNotExist(err) {
-		GenerateKey("test", "./key/")
+	if _, err := os.Stat("./test"); os.IsNotExist(err) {
+		GenerateKey("test", "./test/")
 	}
-	c, _ = NewClient("Test", ClientCategoryUser, "http://localhost:8008", "./key/test.priv")
+	c, _ = NewClient("Test", ClientCategoryUser, "http://localhost:8008", "./test/test.priv")
 }
 
 func TestClientFramework_Register(t *testing.T) {
@@ -22,7 +22,7 @@ func TestClientFramework_Register(t *testing.T) {
 }
 
 func TestClientFramework_Show(t *testing.T) {
-	u, err := c.Show()
+	u, err := c.GetData()
 	if err != nil {
 		t.Error(err)
 	}

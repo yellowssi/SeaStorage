@@ -2,17 +2,24 @@ package user
 
 import (
 	"errors"
+	"fmt"
+	"github.com/rs/zerolog/log"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	seaStorageUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Client struct {
-	User            *seaStorageUser.User
+	User            *tpUser.User
 	PWD             string
 	ClientFramework *lib.ClientFramework
 }
@@ -22,7 +29,16 @@ func NewUserClient(name string, url string, keyFile string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, _ := c.Show()
+	var u *tpUser.User
+	userBytes, _ := c.GetData()
+	if userBytes != nil {
+		log.Info().Msg(fmt.Sprintf("user login success: %s", name))
+		u, err = tpUser.UserFromBytes(userBytes)
+		if err != nil {
+			u = nil
+			log.Error().Msg(err.Error())
+		}
+	}
 	return &Client{User: u, PWD: "/", ClientFramework: c}, nil
 }
 
@@ -47,6 +63,10 @@ func (c *Client) ChangePWD(dst string) error {
 	}
 	c.PWD = dst
 	return nil
+}
+
+func (c *Client) GetSize() int {
+	return c.User.Root.Home.Size
 }
 
 func (c *Client) GetINode(p string) (storage.INode, error) {
@@ -164,11 +184,123 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
+func (c *Client) DownloadFiles(p, dst string) {
+	iNode, err := c.GetINode(p)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	switch iNode.(type) {
+	case *storage.File:
+		c.downloadFile(iNode.(*storage.File), dst)
+	case *storage.Directory:
+		c.downloadDirectory(iNode.(*storage.Directory), dst)
+	}
+}
+
+func (c *Client) downloadDirectory(dir *storage.Directory, dst string) {
+	for _, iNode := range dir.INodes {
+		switch iNode.(type) {
+		case *storage.File:
+			go c.downloadFile(iNode.(*storage.File), path.Join(dst, dir.Name))
+		case *storage.Directory:
+			go c.downloadDirectory(iNode.(*storage.Directory), path.Join(dst, dir.Name))
+		}
+	}
+}
+
+func (c *Client) downloadFile(f *storage.File, dst string) {
+	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	errCount := 0
+	for i, fragment := range f.Fragments {
+		if i-errCount == lib.DefaultDataShards {
+			break
+		}
+		err = p2p.DownloadFile(fragment.Hash, path.Join(lib.DefaultTmpPath, f.Hash))
+		if err != nil {
+			errCount++
+		}
+	}
+	if errCount >= lib.DefaultParShards {
+		fmt.Println("not enough sources")
+		return
+	}
+	outFile, err := os.OpenFile(path.Join(lib.DefaultTmpPath, f.Hash, f.Name+".enc"), os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	hashes := make([]string, len(f.Fragments))
+	for i := range f.Fragments {
+		hashes[i] = f.Fragments[i].Hash
+	}
+	err = crypto.MergeFile(path.Join(lib.DefaultTmpPath, f.Hash), hashes, outFile, int(f.Size), lib.DefaultDataShards, lib.DefaultParShards)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if _, err := os.Stat(dst); os.IsNotExist(err) {
+		err := os.MkdirAll(dst, 0755)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+	outFile.Close()
+	inFile, err := os.Open(outFile.Name())
+	defer inFile.Close()
+	dstFile, err := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
+	defer dstFile.Close()
+	hash, err := crypto.DecryptFile(inFile, dstFile, tpCrypto.HexToBytes(c.User.Root.Keys[f.KeyIndex].Key))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if f.Hash != hash {
+		fmt.Println(errors.New("invalid hash"))
+	} else {
+		fmt.Println("download success:", dstFile.Name())
+	}
+}
+
 func (c *Client) Sync() error {
-	u, err := c.ClientFramework.Show()
+	userBytes, err := c.ClientFramework.GetData()
+	if err != nil {
+		return err
+	}
+	u, err := tpUser.UserFromBytes(userBytes)
 	if err != nil {
 		return err
 	}
 	c.User = u
 	return nil
+}
+
+func (c *Client) uploadFiles(fileInfo storage.FileInfo, src, dst, name string, seas []string) error {
+	if len(seas) != len(fileInfo.Fragments) {
+		return errors.New("the storage destination is not enough")
+	}
+
+	var err error
+	var wg sync.WaitGroup
+	for i := range fileInfo.Fragments {
+		f, subErr := os.Open(path.Join(src, fileInfo.Fragments[i].Hash))
+		if subErr != nil && os.IsNotExist(subErr) {
+			continue
+		}
+		signature := c.ClientFramework.GenerateOperationSignature(tpUser.NewOperation(c.ClientFramework.Name, c.ClientFramework.GetPublicKey(), dst, name, time.Now()))
+		wg.Add(1)
+		go func(signature tpUser.OperationSignature) {
+			err = p2p.UploadFile(f, seas[i], signature)
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
+		}(*signature)
+	}
+	wg.Wait()
+	return err
 }

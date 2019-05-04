@@ -11,10 +11,10 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
-	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	"gitlab.com/SeaStorage/SeaStorage-TP/state"
-	"gitlab.com/SeaStorage/SeaStorage-TP/user"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
+	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -61,24 +61,24 @@ func NewClient(name string, category bool, url string, keyFile string) (*ClientF
 		return nil, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
 	}
 	// Get private key object
-	privateKey := signing.NewSecp256k1PrivateKey(crypto.HexToBytes(string(privateKeyHex)))
+	privateKey := signing.NewSecp256k1PrivateKey(tpCrypto.HexToBytes(string(privateKeyHex)))
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	signer := cryptoFactory.NewSigner(privateKey)
 	return &ClientFramework{Name: name, Category: category, url: url, signer: signer}, nil
 }
 
 func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
-	var seaStoragePayload payload.SeaStoragePayload
+	var seaStoragePayload tpPayload.SeaStoragePayload
 	if cf.Category {
-		seaStoragePayload.Action = payload.CreateUser
+		seaStoragePayload.Action = tpPayload.CreateUser
 		seaStoragePayload.Target = name
 		cf.Name = name
 	} else {
-		seaStoragePayload.Action = payload.CreateSea
+		seaStoragePayload.Action = tpPayload.CreateSea
 		seaStoragePayload.Target = name
 		cf.Name = name
 	}
-	response, err := cf.SendTransaction([]payload.SeaStoragePayload{seaStoragePayload}, 0)
+	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -109,14 +109,14 @@ func (cf *ClientFramework) ListAll(start string, limit uint) ([]interface{}, err
 }
 
 func (cf *ClientFramework) ListUsers(start string, limit uint) ([]interface{}, error) {
-	return cf.list(cf.getPrefix()+state.UserNamespace, start, limit)
+	return cf.list(cf.getPrefix()+tpState.UserNamespace, start, limit)
 }
 
 func (cf *ClientFramework) ListSeas(start string, limit uint) ([]interface{}, error) {
-	return cf.list(cf.getPrefix()+state.SeaNamespace, start, limit)
+	return cf.list(cf.getPrefix()+tpState.SeaNamespace, start, limit)
 }
 
-func (cf *ClientFramework) Show() (*user.User, error) {
+func (cf *ClientFramework) GetData() ([]byte, error) {
 	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.getAddress())
 	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
@@ -130,7 +130,7 @@ func (cf *ClientFramework) Show() (*user.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return user.UserFromBytes(decodedBytes)
+	return decodedBytes, nil
 }
 
 func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]interface{}, error) {
@@ -187,7 +187,7 @@ func (cf *ClientFramework) sendRequest(url string, data []byte, contentType stri
 	return responseMap, nil
 }
 
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -259,15 +259,19 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []payload.SeaStora
 }
 
 func (cf *ClientFramework) getPrefix() string {
-	return state.Namespace
+	return tpState.Namespace
 }
 
 func (cf *ClientFramework) getAddress() string {
 	if cf.Category {
-		return state.MakeAddress(state.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
+		return tpState.MakeAddress(tpState.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
 	} else {
-		return state.MakeAddress(state.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
+		return tpState.MakeAddress(tpState.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
 	}
+}
+
+func (cf *ClientFramework) GetPublicKey() string {
+	return cf.signer.GetPublicKey().AsHex()
 }
 
 func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
@@ -312,7 +316,7 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 		for i <= wait {
 			select {
 			case <-ticker.C:
-				u, err := cf.Show()
+				u, err := cf.GetData()
 				if err == nil && u != nil {
 					result <- true
 					return
@@ -328,6 +332,10 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 // TODO: Subscribing events
 //func (c *ClientFramework) subscribingToEvents(action string, id string) error {
 //}
+
+func (cf *ClientFramework) GenerateOperationSignature(operation *tpUser.Operation) *tpUser.OperationSignature {
+	return tpUser.NewOperationSignature(*operation, *cf.signer)
+}
 
 func (cf *ClientFramework) Whoami() {
 	if cf.Category {

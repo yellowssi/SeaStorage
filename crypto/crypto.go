@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"github.com/klauspost/reedsolomon"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -40,11 +41,22 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	}
 	keyAes := crypto.GenerateRandomAESKey(lib.AESKeySize)
 	hash, err := EncryptFile(inFile, outFile, keyAes)
-	_ = inFile.Close()
-	_ = outFile.Close()
+	if err != nil {
+		return
+	}
+	inFile.Close()
+	outFile.Close()
 
 	// Split File
 	f, err := os.Open(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix))
+	if err != nil {
+		return
+	}
+	defer func() {
+		f.Close()
+		os.Remove(f.Name())
+	}()
+	fileInfo, err := f.Stat()
 	if err != nil {
 		return
 	}
@@ -62,7 +74,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	}
 	info = storage.FileInfo{
 		Name:      inFileInfo.Name(),
-		Size:      uint(inFileInfo.Size()),
+		Size:      int(fileInfo.Size()),
 		Hash:      hash,
 		Key:       crypto.BytesToHex(keyAes),
 		Fragments: fragments,
@@ -104,7 +116,7 @@ func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err erro
 		outBuf := make([]byte, n)
 		ctr.XORKeyStream(outBuf, buf[:n])
 		hashes = append(hashes, crypto.SHA512BytesFromBytes(outBuf))
-		_, _ = outFile.Write(outBuf)
+		outFile.Write(outBuf)
 	}
 	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return
@@ -131,9 +143,6 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 		n, err := inFile.ReadAt(buf, int64(i))
 		if err != nil && err != io.EOF {
 			return hash, err
-		}
-		if i == int(size)-lib.BufferSize || err == io.EOF {
-			n = int(size) - i - lib.HmacSize
 		}
 
 		hashes = append(hashes, crypto.SHA512BytesFromBytes(buf[:n]))
@@ -178,7 +187,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	}
 	input := make([]io.Reader, dataShards)
 	for i := range data {
-		_ = out[i].Close()
+		out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
 			return hashes, err
@@ -212,66 +221,67 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	return
 }
 
-func MergeFile(inPath, filename string, outFile *os.File, dataShards, parShards int) (hashes []string, err error) {
+func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, dataShards, parShards int) error {
+	if len(hashes) != dataShards+parShards {
+		return errors.New("the length of hash is not equal to shards")
+	}
 	dec, err := reedsolomon.NewStream(dataShards, parShards)
 	if err != nil {
-		return
+		return err
 	}
-	shards, size, err := openInput(inPath, filename, dataShards, parShards)
+	shards, size, err := openInput(inPath, hashes, dataShards, parShards)
 	if err != nil {
-		return
+		return err
 	}
 	ok, err := dec.Verify(shards)
 	if !ok {
+		shards, _, err := openInput(inPath, hashes, dataShards, parShards)
 		out := make([]io.Writer, len(shards))
 		for i := range out {
 			if shards[i] == nil {
-				outFilename := fmt.Sprintf("%s.%d", filename, i)
-				out[i], err = os.Create(path.Join(inPath, outFilename))
+				out[i], err = os.Create(path.Join(inPath, hashes[i]))
 				if err != nil {
-					return
+					return err
 				}
 			}
 		}
 		err = dec.Reconstruct(shards, out)
 		if err != nil {
-			return
+			return err
 		}
 		for i := range out {
 			if out[i] != nil {
 				err = out[i].(*os.File).Close()
 				if err != nil {
-					return
+					return err
 				}
 			}
 		}
-		shards, size, err = openInput(inPath, filename, dataShards, parShards)
+		shards, _, err = openInput(inPath, hashes, dataShards, parShards)
 		ok, err = dec.Verify(shards)
 		if !ok || err != nil {
-			return
+			return err
 		}
 	}
-	shards, size, err = openInput(inPath, filename, dataShards, parShards)
+	shards, size, err = openInput(inPath, hashes, dataShards, parShards)
 	err = dec.Join(outFile, shards, int64(dataShards)*size)
 	if err != nil {
-		return
+		return err
 	}
-	hashes = make([]string, dataShards+parShards)
 	for i := range shards {
-		hashes[i], err = CalFileHash(shards[i].(*os.File))
-		if err != nil {
-			return
-		}
+		defer func() {
+			shards[i].(*os.File).Close()
+			os.Remove(shards[i].(*os.File).Name())
+		}()
 	}
-	return
+	return outFile.Truncate(int64(originalSize))
 }
 
-func openInput(inPath, filename string, dataShards, parShards int) (r []io.Reader, size int64, err error) {
+func openInput(inPath string, hashes []string, dataShards, parShards int) (r []io.Reader, size int64, err error) {
 	// Create shards and load the data.
 	shards := make([]io.Reader, dataShards+parShards)
 	for i := range shards {
-		inFilename := fmt.Sprintf("%s.%d", filename, i)
-		f, err := os.Open(path.Join(inPath, inFilename))
+		f, err := os.Open(path.Join(inPath, hashes[i]))
 		if err != nil {
 			shards[i] = nil
 			continue
