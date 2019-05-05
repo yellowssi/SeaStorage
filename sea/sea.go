@@ -29,7 +29,7 @@ func NewClient(name, url, keyFile string) (*Client, error) {
 	return &Client{Sea: s, ClientFramework: c}, nil
 }
 
-func (c *Client) ClientRegister() error {
+func (c *Client) SeaRegister() error {
 	_, err := c.Register(c.Name)
 	if err != nil {
 		return err
