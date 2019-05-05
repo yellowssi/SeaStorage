@@ -19,12 +19,12 @@ import (
 )
 
 type Client struct {
-	User            *tpUser.User
-	PWD             string
-	ClientFramework *lib.ClientFramework
+	User *tpUser.User
+	PWD  string
+	*lib.ClientFramework
 }
 
-func NewUserClient(name string, url string, keyFile string) (*Client, error) {
+func NewUserClient(name, url, keyFile string) (*Client, error) {
 	c, err := lib.NewClient(name, lib.ClientCategoryUser, url, keyFile)
 	if err != nil {
 		return nil, err
@@ -42,15 +42,15 @@ func NewUserClient(name string, url string, keyFile string) (*Client, error) {
 	return &Client{User: u, PWD: "/", ClientFramework: c}, nil
 }
 
-func (c *Client) Register() (err error) {
-	_, err = c.ClientFramework.Register(c.ClientFramework.Name)
+func (c *Client) UserRegister() error {
+	_, err := c.Register(c.Name)
 	if err != nil {
 		return err
 	}
 	logrus.WithFields(logrus.Fields{
-		"name": c.ClientFramework.Name,
-		"public key": c.ClientFramework.GetPublicKey(),
-		"address": c.ClientFramework.GetAddress(),
+		"name":       c.Name,
+		"public key": c.GetPublicKey(),
+		"address":    c.GetAddress(),
 	}).Info("user register success")
 	return c.Sync()
 }
@@ -98,9 +98,9 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
 		Action: payload.UserCreateDirectory,
-		Name:   c.ClientFramework.Name,
+		Name:   c.Name,
 		PWD:    p,
 	}}, lib.DefaultWait)
 	return response, err
@@ -124,9 +124,9 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
 		Action:   payload.UserCreateFile,
-		Name:     c.ClientFramework.Name,
+		Name:     c.Name,
 		PWD:      dst,
 		FileInfo: info,
 	}}, lib.DefaultWait)
@@ -157,9 +157,9 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
 		Action: payload.UserDeleteDirectory,
-		Name:   c.ClientFramework.Name,
+		Name:   c.Name,
 		PWD:    p,
 		Target: name,
 	}}, lib.DefaultWait)
@@ -180,9 +180,9 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.ClientFramework.SendTransaction([]payload.SeaStoragePayload{{
+	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
 		Action: payload.UserDeleteFile,
-		Name:   c.ClientFramework.Name,
+		Name:   c.Name,
 		PWD:    p,
 		Target: name,
 	}}, lib.DefaultWait)
@@ -273,7 +273,7 @@ func (c *Client) downloadFile(f *storage.File, dst string) {
 }
 
 func (c *Client) Sync() error {
-	userBytes, err := c.ClientFramework.GetData()
+	userBytes, err := c.GetData()
 	if err != nil {
 		return err
 	}
@@ -297,7 +297,7 @@ func (c *Client) uploadFiles(fileInfo storage.FileInfo, src, dst, name string, s
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
-		signature := c.ClientFramework.GenerateOperationSignature(tpUser.NewOperation(c.ClientFramework.Name, c.ClientFramework.GetPublicKey(), dst, name, time.Now()))
+		signature := c.GenerateOperationSignature(tpUser.NewOperation(c.Name, c.GetPublicKey(), dst, name, time.Now()))
 		wg.Add(1)
 		go func(signature tpUser.OperationSignature) {
 			err = p2p.UploadFile(f, seas[i], signature)

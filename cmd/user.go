@@ -97,7 +97,7 @@ communicating with the transaction processor.`,
 					fmt.Println("Already register.")
 					continue
 				}
-				err = cli.Register()
+				err = cli.UserRegister()
 				if err != nil {
 					fmt.Println(err)
 				} else {

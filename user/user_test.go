@@ -13,7 +13,7 @@ func init() {
 }
 
 func TestClient_Register(t *testing.T) {
-	err := cli.Register()
+	err := cli.UserRegister()
 	if err != nil {
 		t.Error(err)
 	}
