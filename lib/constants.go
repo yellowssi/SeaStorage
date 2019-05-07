@@ -7,7 +7,7 @@ const (
 	FamilyName        string = "SeaStorage"
 	FamilyVersion     string = "1.0.0"
 	DefaultListenPort int    = 5001
-	ProtocolID        string = "/SeaStorage/1.0.0"
+	ProtocolVersion   string = "/SeaStorage/1.0.0"
 	DefaultUrl        string = "http://127.0.0.1:8008"
 	DefaultTmpPath    string = "/tmp/SeaStorage"
 	DefaultWait       uint   = 60
