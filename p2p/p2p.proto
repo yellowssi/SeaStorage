@@ -2,13 +2,16 @@ syntax = "proto3";
 
 package p2p;
 
+// designed to be shared between all app protocols
 message MessageData {
-    string version = 1;
-    int64 timestamp = 2;
-    string id = 3;
-    string nodeId = 4;
-    bytes publicKey = 5;
-    bytes signature = 6;
+    // shared between all requests
+    string clientVersion = 1; // client version
+    int64 timestamp = 2; // unix time
+    string id = 3; // allows requesters to use request data when processing a response
+    bool gossip = 4; // true to have receiver peer gossip the message to neighbors
+    string nodeId = 5; // id of node that created the message (not the peer that may have sent it). =base58(multihash(nodePubKey))
+    bytes nodePubKey = 6; // Authoring node Secp256k1 public key (32bytes) - protobufs serielized
+    bytes sign = 7; // signature of message data + method specific data by message authoring node.
 }
 
 message UploadQueryRequest {
@@ -21,7 +24,7 @@ message UploadQueryRequest {
 message UploadQueryResponse {
     MessageData messageData = 1;
     string tag = 2;
-    bool confirm = 3;
+    string address = 3;
 }
 
 message UploadRequest {
@@ -40,4 +43,15 @@ message OperationSignatureRequest {
     MessageData messageData = 1;
     string tag = 2;
     bytes operationSignature = 3;
+}
+
+message DownloadRequest {
+    MessageData messageData = 1;
+    string hash = 2;
+}
+
+message DownloadResponse {
+    MessageData messageData = 1;
+    string hash = 2;
+    bytes data = 3;
 }

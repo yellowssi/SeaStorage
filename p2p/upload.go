@@ -5,59 +5,84 @@ import (
 )
 
 const (
-	uploadQueryRequest = "/upload/queryreq/1.0.0"
+	uploadQueryRequest  = "/upload/queryreq/1.0.0"
 	uploadQueryResponse = "/upload/queryres/1.0.0"
-	uploadRequest = "/upload/request/1.0.0"
-	uploadResponse = "/upload/response/1.0.0"
+	uploadRequest       = "/upload/request/1.0.0"
+	uploadResponse      = "/upload/response/1.0.0"
 )
 
-
-type UploadQueryProtocol struct {
-	node     *Node
+type SeaUploadQueryProtocol struct {
+	node     *SeaNode
 	requests map[string]*UploadRequest
-	done     chan bool
 }
 
-func NewUploadQueryProtocol(node *Node, done chan bool) *UploadQueryProtocol {
-	p := &UploadQueryProtocol{
+func NewSeaUploadQueryProtocol(node *SeaNode) *SeaUploadQueryProtocol {
+	p := &SeaUploadQueryProtocol{
 		node:     node,
 		requests: make(map[string]*UploadRequest),
-		done:     done,
 	}
 	node.SetStreamHandler(uploadQueryRequest, p.onUploadQueryRequest)
+	return p
+}
+
+func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
+
+}
+
+type SeaUploadProtocol struct {
+	node     *SeaNode
+	requests map[string]*UploadRequest
+}
+
+func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
+	p := &SeaUploadProtocol{
+		node:     node,
+		requests: make(map[string]*UploadRequest),
+	}
+	node.SetStreamHandler(uploadRequest, p.onUploadRequest)
+	return p
+}
+
+func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
+
+}
+
+type UserUploadQueryProtocol struct {
+	node      *UserNode
+	responses map[string]*UploadQueryResponse
+	done      chan bool
+}
+
+func NewUserUploadQueryProtocol(node *UserNode, done chan bool) *UserUploadQueryProtocol {
+	p := &UserUploadQueryProtocol{
+		node:      node,
+		responses: make(map[string]*UploadQueryResponse),
+		done:      done,
+	}
 	node.SetStreamHandler(uploadQueryResponse, p.onUploadQueryResponse)
 	return p
 }
 
-func (p *UploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
+func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 
 }
 
-func (p *UploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
-
+type UserUploadProtocol struct {
+	node      *UserNode
+	responses map[string]*UploadResponse
+	done      chan bool
 }
 
-type UploadProtocol struct {
-	node     *Node
-	requests map[string]*UploadRequest
-	done     chan bool
-}
-
-func NewUploadProtocol(node *Node, done chan bool) *UploadProtocol {
-	p := &UploadProtocol{
-		node:     node,
-		requests: make(map[string]*UploadRequest),
-		done:     done,
+func NewUserUploadProtocol(node *UserNode, done chan bool) *UserUploadProtocol {
+	p := &UserUploadProtocol{
+		node:      node,
+		responses: make(map[string]*UploadResponse),
+		done:      done,
 	}
-	node.SetStreamHandler(uploadRequest, p.onUploadRequest)
 	node.SetStreamHandler(uploadResponse, p.onUploadResponse)
 	return p
 }
 
-func (p *UploadProtocol) onUploadRequest(s inet.Stream) {
-
-}
-
-func (p *UploadProtocol) onUploadResponse(s inet.Stream) {
+func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 
 }
