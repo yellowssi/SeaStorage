@@ -15,7 +15,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"time"
 )
 
 type Client struct {
@@ -25,7 +24,7 @@ type Client struct {
 }
 
 func NewUserClient(name, url, keyFile string) (*Client, error) {
-	c, err := lib.NewClient(name, lib.ClientCategoryUser, url, keyFile)
+	c, err := lib.NewClientFramework(name, lib.ClientCategoryUser, url, keyFile)
 	if err != nil {
 		return nil, err
 	}
@@ -297,9 +296,9 @@ func (c *Client) uploadFiles(fileInfo storage.FileInfo, src, dst, name string, s
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
-		signature := c.GenerateOperationSignature(tpUser.NewOperation(c.Name, c.GetPublicKey(), dst, name, time.Now()))
+		signature := c.GenerateOperation(dst, name, fileInfo.Fragments[i].Hash)
 		wg.Add(1)
-		go func(signature tpUser.OperationSignature) {
+		go func(signature tpUser.Operation) {
 			err = p2p.UploadFile(f, seas[i], signature)
 			if err != nil {
 				logrus.WithField("hash", fileInfo.Fragments[i].Hash).Error(err)

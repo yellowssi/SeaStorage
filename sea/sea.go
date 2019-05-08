@@ -12,7 +12,7 @@ type Client struct {
 }
 
 func NewClient(name, url, keyFile string) (*Client, error) {
-	c, err := lib.NewClient(name, lib.ClientCategorySea, url, keyFile)
+	c, err := lib.NewClientFramework(name, lib.ClientCategorySea, url, keyFile)
 	if err != nil {
 		return nil, err
 	}

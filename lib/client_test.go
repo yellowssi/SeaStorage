@@ -11,7 +11,7 @@ func init() {
 	if _, err := os.Stat("./test"); os.IsNotExist(err) {
 		GenerateKey("test", "./test/")
 	}
-	c, _ = NewClient("Test", ClientCategoryUser, "http://localhost:8008", "./test/test.priv")
+	c, _ = NewClientFramework("Test", ClientCategoryUser, "http://localhost:8008", "./test/test.priv")
 }
 
 func TestClientFramework_Register(t *testing.T) {

@@ -16,42 +16,42 @@ message MessageData {
 
 message UploadQueryRequest {
     MessageData messageData = 1;
-    string path = 2;
-    string name = 3;
-    int64 size = 4;
+    string path = 2; // file storage path
+    string name = 3; // filename
+    int64 size = 4; // the size of file
 }
 
 message UploadQueryResponse {
     MessageData messageData = 1;
-    string tag = 2;
-    string address = 3;
+    string tag = 2; // hash(path + name)
+    string address = 3; // sea address
 }
 
 message UploadRequest {
     MessageData messageData = 1;
-    string tag = 2;
-    bytes data = 3;
+    string tag = 2; // hash(path + name)
+    bytes data = 3; // the data of file
 }
 
 message UploadResponse {
     MessageData messageData = 1;
-    string tag = 2;
-    string hash = 3;
+    string tag = 2; // hash(path + name)
+    string hash = 3; // hash(data)
 }
 
 message OperationSignatureRequest {
     MessageData messageData = 1;
-    string tag = 2;
-    bytes operationSignature = 3;
+    string tag = 2; // hash(path + name)
+    bytes operation = 3; // the operation grant for sea
 }
 
 message DownloadRequest {
     MessageData messageData = 1;
-    string hash = 2;
+    string hash = 2; // the hash of file
 }
 
 message DownloadResponse {
     MessageData messageData = 1;
-    string hash = 2;
-    bytes data = 3;
+    string hash = 2; // the hash of file
+    bytes data = 3; // the data of file
 }

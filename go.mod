@@ -23,7 +23,7 @@ require (
 	github.com/libp2p/go-libp2p-host v0.0.2
 	github.com/libp2p/go-libp2p-interface-connmgr v0.0.3 // indirect
 	github.com/libp2p/go-libp2p-net v0.0.2
-	github.com/libp2p/go-libp2p-peer v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-peer v0.1.0
 	github.com/libp2p/go-libp2p-protocol v0.0.1
 	github.com/manifoldco/promptui v0.3.2
 	github.com/mattn/go-isatty v0.0.7 // indirect

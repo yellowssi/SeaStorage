@@ -48,7 +48,7 @@ type ClientFramework struct {
 	signer   *signing.Signer
 }
 
-func NewClient(name string, category bool, url string, keyFile string) (*ClientFramework, error) {
+func NewClientFramework(name string, category bool, url string, keyFile string) (*ClientFramework, error) {
 	if name == "" {
 		return nil, errors.New("need a valid name")
 	}
