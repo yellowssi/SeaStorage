@@ -2,12 +2,13 @@ package p2p
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/hyperledger/sawtooth-sdk-go/signing"
+	"github.com/google/uuid"
 	inet "github.com/libp2p/go-libp2p-net"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"io/ioutil"
+	"os"
+	"path"
 )
 
 const (
@@ -47,7 +48,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 		return
 	}
 	logrus.WithFields(logrus.Fields{
-		"type": "upload query",
+		"type": "upload query request",
 		"from": s.Conn().RemotePeer(),
 		"data": data.String(),
 	}).Info("received request")
@@ -55,16 +56,30 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
 		logrus.WithFields(logrus.Fields{
-			"type": "upload query",
+			"type": "upload query request",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
 		}).Warn("failed to authenticate message")
 	}
 
+	tag := crypto.SHA512HexFromHex(data.Path + data.Name)
+	if _, err = os.Stat(path.Join(p.node.storagePath)); os.IsNotExist(err) {
+		err = os.MkdirAll(path.Join(p.node.storagePath), 0700)
+		if err != nil {
+			logrus.Error("failed to create directory:", path.Join(p.node.storagePath))
+			return
+		}
+	}
+	filePath := path.Join(p.node.storagePath, crypto.BytesToHex(data.MessageData.NodePubKey), tag)
+	_, err = os.Create(filePath)
+	if err != nil {
+		logrus.Error("failed to create file:", filePath)
+		return
+	}
+
 	resp := &UploadQueryResponse{
 		MessageData: p.node.NewMessageData(data.MessageData.Id, false),
-		Tag:         crypto.SHA512HexFromHex(data.Path + data.Name),
-		Address:     p.node.GetAddress(),
+		Tag:         tag,
 	}
 	signature, err := p.node.signProtoMessage(resp)
 	if err != nil {
@@ -75,7 +90,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
 	if ok {
 		logrus.WithFields(logrus.Fields{
-			"type": "upload query",
+			"type": "upload query request",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
 		}).Info("upload query response sent")
@@ -117,7 +132,53 @@ func NewUserUploadQueryProtocol(node *UserNode, done chan bool) *UserUploadQuery
 }
 
 func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
+	data := &UploadQueryResponse{}
+	buf, err := ioutil.ReadAll(s)
+	if err != nil {
+		s.Reset()
+		logrus.Error(err)
+		return
+	}
+	s.Close()
 
+	err = proto.Unmarshal(buf, data)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.WithFields(logrus.Fields{
+		"type": "upload query response",
+		"from": s.Conn().RemotePeer(),
+		"data": data.String(),
+	}).Info("received response")
+
+	valid := p.node.authenticateMessage(data, data.MessageData)
+	if !valid {
+		logrus.WithFields(logrus.Fields{
+			"type": "upload query response",
+			"from": s.Conn().RemotePeer(),
+			"data": data.String(),
+		}).Warn("failed to authenticate message")
+	}
+	// TODO: Send Upload Request
+}
+
+func (p *UserUploadQueryProtocol) Send(path, name string, size int64) error {
+	req := &UploadQueryRequest{
+		MessageData: p.node.NewMessageData(uuid.New().String(), true),
+		Path:        path,
+		Name:        name,
+		Size:        size,
+	}
+	signature, err := p.node.signProtoMessage(req)
+	if err != nil {
+		return err
+	}
+	req.MessageData.Sign = signature
+
+	//ok := p.node.sendProtoMessage(host.Host(), uploadQueryRequest, req)
+	// TODO: multicast
+	return nil
 }
 
 type UserUploadProtocol struct {

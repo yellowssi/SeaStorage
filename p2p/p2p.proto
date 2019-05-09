@@ -24,7 +24,6 @@ message UploadQueryRequest {
 message UploadQueryResponse {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
-    string address = 3; // sea address
 }
 
 message UploadRequest {
