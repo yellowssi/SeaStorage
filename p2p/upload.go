@@ -6,6 +6,7 @@ import (
 	inet "github.com/libp2p/go-libp2p-net"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 	"io/ioutil"
 	"os"
 	"path"
@@ -20,20 +21,20 @@ const (
 
 type SeaUploadQueryProtocol struct {
 	node     *SeaNode
-	requests map[string]*UploadRequest
+	requests map[string]*pb.UploadRequest
 }
 
 func NewSeaUploadQueryProtocol(node *SeaNode) *SeaUploadQueryProtocol {
 	p := &SeaUploadQueryProtocol{
 		node:     node,
-		requests: make(map[string]*UploadRequest),
+		requests: make(map[string]*pb.UploadRequest),
 	}
 	node.SetStreamHandler(uploadQueryRequest, p.onUploadQueryRequest)
 	return p
 }
 
 func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
-	data := &UploadQueryRequest{}
+	data := &pb.UploadQueryRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
@@ -77,7 +78,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 		return
 	}
 
-	resp := &UploadQueryResponse{
+	resp := &pb.UploadQueryResponse{
 		MessageData: p.node.NewMessageData(data.MessageData.Id, false),
 		Tag:         tag,
 	}
@@ -99,13 +100,13 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 
 type SeaUploadProtocol struct {
 	node     *SeaNode
-	requests map[string]*UploadRequest
+	requests map[string]*pb.UploadRequest
 }
 
 func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	p := &SeaUploadProtocol{
 		node:     node,
-		requests: make(map[string]*UploadRequest),
+		requests: make(map[string]*pb.UploadRequest),
 	}
 	node.SetStreamHandler(uploadRequest, p.onUploadRequest)
 	return p
@@ -117,14 +118,14 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 
 type UserUploadQueryProtocol struct {
 	node      *UserNode
-	responses map[string]*UploadQueryResponse
+	responses map[string]*pb.UploadQueryResponse
 	done      chan bool
 }
 
 func NewUserUploadQueryProtocol(node *UserNode, done chan bool) *UserUploadQueryProtocol {
 	p := &UserUploadQueryProtocol{
 		node:      node,
-		responses: make(map[string]*UploadQueryResponse),
+		responses: make(map[string]*pb.UploadQueryResponse),
 		done:      done,
 	}
 	node.SetStreamHandler(uploadQueryResponse, p.onUploadQueryResponse)
@@ -132,7 +133,7 @@ func NewUserUploadQueryProtocol(node *UserNode, done chan bool) *UserUploadQuery
 }
 
 func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
-	data := &UploadQueryResponse{}
+	data := &pb.UploadQueryResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
@@ -164,7 +165,7 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 }
 
 func (p *UserUploadQueryProtocol) Send(path, name string, size int64) error {
-	req := &UploadQueryRequest{
+	req := &pb.UploadQueryRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
 		Path:        path,
 		Name:        name,
@@ -183,14 +184,14 @@ func (p *UserUploadQueryProtocol) Send(path, name string, size int64) error {
 
 type UserUploadProtocol struct {
 	node      *UserNode
-	responses map[string]*UploadResponse
+	responses map[string]*pb.UploadResponse
 	done      chan bool
 }
 
 func NewUserUploadProtocol(node *UserNode, done chan bool) *UserUploadProtocol {
 	p := &UserUploadProtocol{
 		node:      node,
-		responses: make(map[string]*UploadResponse),
+		responses: make(map[string]*pb.UploadResponse),
 		done:      done,
 	}
 	node.SetStreamHandler(uploadResponse, p.onUploadResponse)

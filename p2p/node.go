@@ -10,6 +10,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 	"log"
 	"time"
 )
@@ -25,7 +26,7 @@ func NewNode(host host.Host) *Node {
 // Authenticate incoming p2p message
 // message: a protobufs go data object
 // data: common p2p message data
-func (n *Node) authenticateMessage(message proto.Message, data *MessageData) bool {
+func (n *Node) authenticateMessage(message proto.Message, data *pb.MessageData) bool {
 	// store a temp ref to signature and remove it from message data
 	// sign is a string to allow easy reset to zero-value (empty string)
 	sign := data.Sign
@@ -106,7 +107,7 @@ func (n *Node) verifyData(data []byte, signature []byte, peerId peer.ID, pubKeyD
 
 // helper method - generate message data shared between all node's p2p protocols
 // messageId: unique for requests, copied from request for responses
-func (n *Node) NewMessageData(messageId string, gossip bool) *MessageData {
+func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 	// Add protobufs bin data for message author public key
 	// this is useful for authenticating  messages forwarded by a node authored by another node
 	nodePubKey, err := n.Peerstore().PubKey(n.ID()).Bytes()
@@ -115,7 +116,7 @@ func (n *Node) NewMessageData(messageId string, gossip bool) *MessageData {
 		panic("Failed to get public key for sender from local peer store.")
 	}
 
-	return &MessageData{
+	return &pb.MessageData{
 		ClientVersion: lib.FamilyName + "/" + lib.FamilyVersion,
 		NodeId:        peer.IDB58Encode(n.ID()),
 		NodePubKey:    nodePubKey,

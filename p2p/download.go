@@ -2,6 +2,7 @@ package p2p
 
 import (
 	inet "github.com/libp2p/go-libp2p-net"
+	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 )
 
 const (
@@ -11,13 +12,13 @@ const (
 
 type SeaDownloadProtocol struct {
 	node     *SeaNode
-	requests map[string]*DownloadRequest
+	requests map[string]*pb.DownloadRequest
 }
 
 func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	d := &SeaDownloadProtocol{
 		node:     node,
-		requests: make(map[string]*DownloadRequest),
+		requests: make(map[string]*pb.DownloadRequest),
 	}
 	node.SetStreamHandler(downloadRequest, d.onDownloadRequest)
 	return d
@@ -28,16 +29,16 @@ func (d *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 }
 
 type UserDownloadProtocol struct {
-	node     *UserNode
-	responses map[string]*DownloadResponse
-	done     chan bool
+	node      *UserNode
+	responses map[string]*pb.DownloadResponse
+	done      chan bool
 }
 
 func NewUserDownloadProtocol(node *UserNode, done chan bool) *UserDownloadProtocol {
 	d := &UserDownloadProtocol{
-		node:     node,
-		responses: make(map[string]*DownloadResponse),
-		done:     done,
+		node:      node,
+		responses: make(map[string]*pb.DownloadResponse),
+		done:      done,
 	}
 	node.SetStreamHandler(downloadResponse, d.onDownloadResponse)
 	return d
