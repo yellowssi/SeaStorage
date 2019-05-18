@@ -4,6 +4,11 @@ import (
 	"github.com/sirupsen/logrus"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type Client struct {
@@ -11,22 +16,14 @@ type Client struct {
 	*lib.ClientFramework
 }
 
-func NewClient(name, url, keyFile string) (*Client, error) {
-	c, err := lib.NewClientFramework(name, lib.ClientCategorySea, url, keyFile)
+func NewSeaClient(name, keyFile string) (*Client, error) {
+	c, err := lib.NewClientFramework(name, lib.ClientCategorySea, keyFile)
 	if err != nil {
 		return nil, err
 	}
-	var s *tpSea.Sea
-	seaBytes, _ := c.GetData()
-	if seaBytes != nil {
-		logrus.WithField("seaname", name).Info("sea login success")
-		s, err = tpSea.SeaFromBytes(seaBytes)
-		if err != nil {
-			s = nil
-			logrus.Error(err)
-		}
-	}
-	return &Client{Sea: s, ClientFramework: c}, nil
+	cli := &Client{ClientFramework: c}
+	_ = cli.Sync()
+	return cli, nil
 }
 
 func (c *Client) SeaRegister() error {
@@ -53,4 +50,17 @@ func (c *Client) Sync() error {
 	}
 	c.Sea = s
 	return nil
+}
+
+func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress string, port int) {
+	privateKey, _ := ioutil.ReadFile(keyFile)
+	_, err := p2p.NewSeaNode(c.ClientFramework, storagePath, size, listenAddress, port, privateKey)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+	logrus.Info("Exit")
 }

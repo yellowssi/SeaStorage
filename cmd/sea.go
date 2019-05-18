@@ -18,20 +18,44 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/sea"
 	"os"
+)
+
+var (
+	storagePath   string
+	size          int64
+	listenAddress string
+	port          int
 )
 
 // seaCmd represents the sea command
 var seaCmd = &cobra.Command{
 	Use:   "sea",
 	Short: "A brief description of your command",
-	Long: ``,
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		if name == "" {
 			fmt.Println(errors.New("the name of user/sea is required"))
 			os.Exit(0)
 		}
-		fmt.Println("sea called")
+		cli, err := sea.NewSeaClient(name, keyFile)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		err = cli.Sync()
+		if err != nil {
+			resp, err := cli.Register(cli.Name)
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			} else {
+				fmt.Println(resp)
+			}
+		}
+		cli.Bootstrap(keyFile, storagePath, size, listenAddress, port)
 	},
 }
 
@@ -47,4 +71,8 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// seaCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	seaCmd.Flags().StringVarP(&storagePath, "path", "P", lib.DefaultStoragePath, "the path for storage")
+	seaCmd.Flags().Int64VarP(&size, "size", "s", lib.DefaultStorageSize, "the size for storage")
+	seaCmd.Flags().StringVarP(&listenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
+	seaCmd.Flags().IntVarP(&port, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
 }

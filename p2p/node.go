@@ -2,6 +2,9 @@ package p2p
 
 import (
 	"context"
+	"log"
+	"time"
+
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
 	crypto "github.com/libp2p/go-libp2p-crypto"
@@ -11,8 +14,6 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
-	"log"
-	"time"
 )
 
 type Node struct {
@@ -118,7 +119,7 @@ func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 
 	return &pb.MessageData{
 		ClientVersion: lib.FamilyName + "/" + lib.FamilyVersion,
-		NodeId:        peer.IDB58Encode(n.ID()),
+		NodeId:        peer.IDHexEncode(n.ID()),
 		NodePubKey:    nodePubKey,
 		Timestamp:     time.Now().Unix(),
 		Id:            messageId,

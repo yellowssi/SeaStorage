@@ -23,8 +23,8 @@ type Client struct {
 	*lib.ClientFramework
 }
 
-func NewUserClient(name, url, keyFile string) (*Client, error) {
-	c, err := lib.NewClientFramework(name, lib.ClientCategoryUser, url, keyFile)
+func NewUserClient(name, keyFile string) (*Client, error) {
+	c, err := lib.NewClientFramework(name, lib.ClientCategoryUser, keyFile)
 	if err != nil {
 		return nil, err
 	}

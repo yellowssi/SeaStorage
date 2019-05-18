@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package p2p;
+package pb;
 
 // designed to be shared between all app protocols
 message MessageData {
@@ -24,21 +24,24 @@ message UploadQueryRequest {
 message UploadQueryResponse {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
+    int64 size = 3; // the size of file
 }
 
 message UploadRequest {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
-    bytes data = 3; // the data of file
+    int64 id = 3; // the id of data package
+    bytes data = 4; // the data of file
 }
 
 message UploadResponse {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
-    string hash = 3; // hash(data)
+    int64 id = 3; // the id of data package
+    string hash = 4; // hash(data)
 }
 
-message OperationSignatureRequest {
+message OperationRequest {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
     bytes operation = 3; // the operation grant for sea

@@ -29,7 +29,6 @@ import (
 var (
 	cfgFile string
 	name    string
-	url     string
 	keyFile string
 	debug   bool
 )
@@ -62,7 +61,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
-	rootCmd.PersistentFlags().StringVarP(&url, "url", "u", lib.DefaultUrl, "the sawtooth rest api")
+	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.TPURL, "the sawtooth rest api")
 	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 }

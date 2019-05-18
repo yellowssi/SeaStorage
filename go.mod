@@ -8,6 +8,7 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
 	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1 // indirect
@@ -34,7 +35,7 @@ require (
 	github.com/libp2p/go-libp2p v0.0.23
 	github.com/libp2p/go-libp2p-crypto v0.0.2
 	github.com/libp2p/go-libp2p-host v0.0.3
-	github.com/libp2p/go-libp2p-kad-dht v0.0.10
+	github.com/libp2p/go-libp2p-kad-dht v0.0.10 // indirect
 	github.com/libp2p/go-libp2p-net v0.0.2
 	github.com/libp2p/go-libp2p-peer v0.1.1
 	github.com/libp2p/go-libp2p-protocol v0.0.1
@@ -53,7 +54,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/objx v0.2.0 // indirect
-	gitlab.com/SeaStorage/SeaStorage-TP v1.0.2
+	gitlab.com/SeaStorage/SeaStorage-TP v1.0.3
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f // indirect
 	golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522 // indirect
 	golang.org/x/image v0.0.0-20190507092727-e4e5bf290fec // indirect
@@ -61,10 +62,10 @@ require (
 	golang.org/x/mobile v0.0.0-20190509164839-32b2708ab171 // indirect
 	golang.org/x/net v0.0.0-20190514140710-3ec191127204 // indirect
 	golang.org/x/oauth2 v0.0.0-20190402181905-9f3314589c9a // indirect
-	golang.org/x/sys v0.0.0-20190515190549-87c872767d25 // indirect
+	golang.org/x/sys v0.0.0-20190516110030-61b9204099cb // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190515235946-4f9510c6a12d // indirect
+	golang.org/x/tools v0.0.0-20190517183331-d88f79806bbd // indirect
 	golang.org/x/xerrors v0.0.0-20190513163551-3ee3066db522 // indirect
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20190515210553-995ef27e003f // indirect

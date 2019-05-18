@@ -9,7 +9,7 @@ import (
 var cli *Client
 
 func init() {
-	cli, _ = NewUserClient("Test", lib.DefaultUrl, "../lib/test/test.priv")
+	cli, _ = NewUserClient("Test", "../lib/test/test.priv")
 }
 
 func TestClient_Register(t *testing.T) {

@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -17,11 +16,9 @@ import (
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -44,11 +41,10 @@ var (
 type ClientFramework struct {
 	Name     string
 	Category bool // true: User, false: Sea
-	url      string
 	signer   *signing.Signer
 }
 
-func NewClientFramework(name string, category bool, url string, keyFile string) (*ClientFramework, error) {
+func NewClientFramework(name string, category bool, keyFile string) (*ClientFramework, error) {
 	if name == "" {
 		return nil, errors.New("need a valid name")
 	}
@@ -64,7 +60,7 @@ func NewClientFramework(name string, category bool, url string, keyFile string) 
 	privateKey := signing.NewSecp256k1PrivateKey(tpCrypto.HexToBytes(string(privateKeyHex)))
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	signer := cryptoFactory.NewSigner(privateKey)
-	return &ClientFramework{Name: name, Category: category, url: url, signer: signer}, nil
+	return &ClientFramework{Name: name, Category: category, signer: signer}, nil
 }
 
 func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
@@ -89,36 +85,9 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 }
 
-func (cf *ClientFramework) list(address string, start string, limit uint) (result []interface{}, err error) {
-	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, address)
-	if start != "" {
-		apiSuffix = fmt.Sprintf("%s&start=%s", apiSuffix, start)
-	}
-	if limit > 0 {
-		apiSuffix = fmt.Sprintf("%s&limit=%v", apiSuffix, limit)
-	}
-	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
-	if err != nil {
-		return
-	}
-	return response["data"].([]interface{}), nil
-}
-
-func (cf *ClientFramework) ListAll(start string, limit uint) ([]interface{}, error) {
-	return cf.list(cf.getPrefix(), start, limit)
-}
-
-func (cf *ClientFramework) ListUsers(start string, limit uint) ([]interface{}, error) {
-	return cf.list(cf.getPrefix()+tpState.UserNamespace, start, limit)
-}
-
-func (cf *ClientFramework) ListSeas(start string, limit uint) ([]interface{}, error) {
-	return cf.list(cf.getPrefix()+tpState.SeaNamespace, start, limit)
-}
-
 func (cf *ClientFramework) GetData() ([]byte, error) {
 	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.GetAddress())
-	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
+	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -136,55 +105,13 @@ func (cf *ClientFramework) GetData() ([]byte, error) {
 func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
-	response, err := cf.sendRequestByAPISuffix(apiSuffix, []byte{}, "")
+	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
 	}
 
 	entry := response["data"].([]interface{})[0].(map[string]interface{})
 	return entry, nil
-}
-
-func (cf *ClientFramework) sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[string]interface{}, error) {
-	// Construct url
-	var url string
-	if strings.HasPrefix(cf.url, "http://") {
-		url = fmt.Sprintf("%s/%s", cf.url, apiSuffix)
-	} else {
-		url = fmt.Sprintf("http://%s/%s", cf.url, apiSuffix)
-	}
-
-	return cf.sendRequest(url, data, contentType)
-}
-
-func (cf *ClientFramework) sendRequest(url string, data []byte, contentType string) (map[string]interface{}, error) {
-	// Send request to validator URL
-	var response *http.Response
-	var err error
-	if len(data) > 0 {
-		response, err = http.Post(url, contentType, bytes.NewBuffer(data))
-	} else {
-		response, err = http.Get(url)
-	}
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to connect to REST API: %v", err))
-	}
-	if response.StatusCode == 404 {
-		return nil, errors.New(fmt.Sprintf("No such endpoint: %s", url))
-	} else if response.StatusCode >= 400 {
-		return nil, errors.New(fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))
-	}
-	defer response.Body.Close()
-	responseBody, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading response: %v", err))
-	}
-	responseMap := make(map[string]interface{})
-	err = json.Unmarshal(responseBody, &responseMap)
-	if err != nil {
-		return nil, err
-	}
-	return responseMap, nil
 }
 
 func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
@@ -238,7 +165,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	if wait > 0 {
 		waitTime := uint(0)
 		startTime := time.Now()
-		response, err := cf.sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
+		response, err := sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 		if err != nil {
 			return nil, err
 		}
@@ -255,11 +182,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		return response, nil
 	}
 
-	return cf.sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
-}
-
-func (cf *ClientFramework) getPrefix() string {
-	return tpState.Namespace
+	return sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 }
 
 func (cf *ClientFramework) GetAddress() string {
