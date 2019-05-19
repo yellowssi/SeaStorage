@@ -2,15 +2,17 @@ package lib
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
+	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
 )
@@ -48,8 +50,20 @@ func ListSeasPeerId(start string, limit uint) ([]peer.ID, error) {
 		return nil, err
 	}
 	result := make([]peer.ID, 0)
-	for _, s := range seas {
-		id, err := peer.IDFromString(crypto.SHA256HexFromHex(s.(*tpSea.Sea).PublicKey))
+	for i := range seas {
+		seaBytes, err := base64.StdEncoding.DecodeString(seas[i].(map[string]interface{})["data"].(string))
+		if err != nil {
+			continue
+		}
+		s, err := tpSea.SeaFromBytes(seaBytes)
+		if err != nil {
+			continue
+		}
+		pub, err := p2pCrypto.UnmarshalSecp256k1PublicKey(crypto.HexToBytes(s.PublicKey))
+		if err != nil {
+			continue
+		}
+		id, err := peer.IDFromPublicKey(pub)
 		if err != nil {
 			continue
 		}

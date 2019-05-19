@@ -131,6 +131,12 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if !strings.HasPrefix(src, "/") {
 		return nil, errors.New("the source path should be full path")
 	}
+	if !strings.HasPrefix(dst, "/") {
+		dst = path.Join(c.PWD, dst)
+	}
+	if !strings.HasSuffix(dst, "/") {
+		dst += "/"
+	}
 	// Check Destination Path exists
 	_, err := c.User.Root.GetDirectory(dst)
 	if err != nil {
@@ -139,12 +145,6 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	info, err := crypto.GenerateFileInfo(src, dataShards, parShards)
 	if err != nil {
 		return nil, err
-	}
-	if !strings.HasPrefix(dst, "/") {
-		dst = path.Join(c.PWD, dst)
-	}
-	if !strings.HasSuffix(dst, "/") {
-		dst += "/"
 	}
 	err = c.User.Root.CreateFile(dst, info)
 	if err != nil {
