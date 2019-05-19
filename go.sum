@@ -444,6 +444,8 @@ gitlab.com/SeaStorage/SeaStorage-TP v1.0.2 h1:xQdbkFJTUDU7bxP7aIFUCsEC/3JnBVBL30
 gitlab.com/SeaStorage/SeaStorage-TP v1.0.2/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
 gitlab.com/SeaStorage/SeaStorage-TP v1.0.3 h1:lbzO3suyhiX/3TdwKdxwBzU0jeuMDxHkB1Aj+Dm8Lkk=
 gitlab.com/SeaStorage/SeaStorage-TP v1.0.3/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
+gitlab.com/SeaStorage/SeaStorage-TP v1.0.4 h1:WSUrS9G+hRy77vdxW1jdlRFLK8tCEnszbpc/sNblnTU=
+gitlab.com/SeaStorage/SeaStorage-TP v1.0.4/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.21.0 h1:mU6zScU4U1YAFPHEHYk+3JC4SY7JxgkqS10ZOSyksNg=

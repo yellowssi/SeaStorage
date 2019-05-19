@@ -9,7 +9,7 @@ import (
 
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p-crypto"
+	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	ma "github.com/multiformats/go-multiaddr"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
@@ -44,7 +44,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, listenAd
 		}
 		freeSize = size - totalSize
 	}
-	privateKey, err := crypto.UnmarshalPrivateKey(priv)
+	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}

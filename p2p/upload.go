@@ -2,10 +2,7 @@ package p2p
 
 import (
 	"errors"
-	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	"gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -17,6 +14,10 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	"gitlab.com/SeaStorage/SeaStorage/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 )
 
@@ -71,7 +72,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 		return
 	}
 
-	tag := tpCrypto.SHA512HexFromHex(data.Path + data.Name)
+	tag := tpCrypto.SHA512HexFromBytes([]byte(data.Path + data.Name))
 	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp")); os.IsNotExist(err) {
 		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp"), 0700)
 		if err != nil {
@@ -215,7 +216,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			logrus.Error("failed to calculate file hash:", targetFile)
 			return
 		}
-		// Send Upload Response
+		// SendUploadQuery Upload Response
 		resp := &pb.UploadResponse{
 			Tag:  data.Tag,
 			Id:   data.Id,
@@ -313,7 +314,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		return
 	}
 
-	op, err := user.OperationFromBytes(data.Operation)
+	op, err := tpUser.OperationFromBytes(data.Operation)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"type": "operation request",
@@ -331,8 +332,8 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		return
 	}
 
-	resp, err := p.node.SendTransaction([]payload.SeaStoragePayload{{
-		Action:    payload.UserCreateDirectory,
+	resp, err := p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action:    tpPayload.UserCreateDirectory,
 		Name:      p.node.Name,
 		Signature: *op,
 	}}, lib.DefaultWait)
@@ -342,8 +343,8 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
 		}).Error("failed to send transaction")
-		resp, err = p.node.SendTransaction([]payload.SeaStoragePayload{{
-			Action:    payload.UserCreateDirectory,
+		resp, err = p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
+			Action:    tpPayload.UserCreateDirectory,
 			Name:      p.node.Name,
 			Signature: *op,
 		}}, lib.DefaultWait)
@@ -365,16 +366,14 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 }
 
 type UserUploadQueryProtocol struct {
-	node    *UserNode
-	queries map[string]*pb.UploadQueryResponse
-	done    chan bool
+	node *UserNode
+	srcs map[string]*os.File
 }
 
-func NewUserUploadQueryProtocol(node *UserNode, done chan bool) *UserUploadQueryProtocol {
+func NewUserUploadQueryProtocol(node *UserNode) *UserUploadQueryProtocol {
 	p := &UserUploadQueryProtocol{
-		node:    node,
-		queries: make(map[string]*pb.UploadQueryResponse),
-		done:    done,
+		node: node,
+		srcs: make(map[string]*os.File),
 	}
 	node.SetStreamHandler(uploadQueryResponse, p.onUploadQueryResponse)
 	return p
@@ -409,10 +408,11 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 			"data": data.String(),
 		}).Warn("failed to authenticate message")
 	}
-	// TODO: Send Upload Request
+
+	p.node.SendUpload(s.Conn().RemotePeer(), data.Tag)
 }
 
-func (p *UserUploadQueryProtocol) Send(peerId peer.ID, path, name string, size int64) error {
+func (p *UserUploadQueryProtocol) SendUploadQuery(peerId peer.ID, path, name string, size int64) error {
 	req := &pb.UploadQueryRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
 		Path:        path,
@@ -438,29 +438,133 @@ func (p *UserUploadQueryProtocol) Send(peerId peer.ID, path, name string, size i
 }
 
 type UserUploadProtocol struct {
-	node    *UserNode
-	uploads map[string]*pb.UploadResponse
-	done    chan bool
+	node     *UserNode
+	packages map[string]int64
 }
 
-func NewUserUploadProtocol(node *UserNode, done chan bool) *UserUploadProtocol {
+func NewUserUploadProtocol(node *UserNode) *UserUploadProtocol {
 	p := &UserUploadProtocol{
-		node:    node,
-		uploads: make(map[string]*pb.UploadResponse),
-		done:    done,
+		node:     node,
+		packages: make(map[string]int64),
 	}
 	node.SetStreamHandler(uploadResponse, p.onUploadResponse)
 	return p
 }
 
 func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
+	data := &pb.UploadResponse{}
+	buf, err := ioutil.ReadAll(s)
+	if err != nil {
+		s.Reset()
+		logrus.Error(err)
+		return
+	}
+	s.Close()
 
+	err = proto.Unmarshal(buf, data)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.WithFields(logrus.Fields{
+		"type": "upload response",
+		"from": s.Conn().RemotePeer(),
+		"data": data.String(),
+	}).Info("received response")
+
+	valid := p.node.authenticateMessage(data, data.MessageData)
+	if !valid {
+		logrus.WithFields(logrus.Fields{
+			"type": "upload response",
+			"from": s.Conn().RemotePeer(),
+			"data": data.String(),
+		}).Warn("failed to authenticate message")
+	}
+
+	packages := p.node.packages[data.Tag]
+	if data.Id < packages {
+		err := p.node.sendPackage(s.Conn().RemotePeer(), data.Tag, data.Id)
+		if err != nil {
+			err = p.node.sendPackage(s.Conn().RemotePeer(), data.Tag, data.Id)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"type": "upload response",
+					"from": s.Conn().RemotePeer(),
+					"data": data.String(),
+				}).Warn("failed to send upload protocol")
+				return
+			}
+		}
+		logrus.WithFields(logrus.Fields{
+			"type": "upload response",
+			"from": s.Conn().RemotePeer(),
+			"data": data.String(),
+		}).Info("send upload protocol success")
+		return
+	} else if data.Id == packages {
+		if data.Hash == p.node.operations[data.Tag].Hash {
+			err = p.node.SendOperationProtocol(s.Conn().RemotePeer(), data.Tag)
+			if err != nil {
+				err = p.node.SendOperationProtocol(s.Conn().RemotePeer(), data.Tag)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						"type": "upload response",
+						"from": s.Conn().RemotePeer(),
+						"data": data.String(),
+					}).Warn("failed to send operation protocol")
+				}
+			}
+			logrus.WithFields(logrus.Fields{
+				"type": "upload response",
+				"from": s.Conn().RemotePeer(),
+				"data": data.String(),
+			}).Info("fragment storage success")
+			p.node.seas[data.Tag].Remove(s.Conn().RemotePeer())
+			if len(p.node.seas[data.Tag].ToSlice()) == 0 {
+				logrus.WithFields(logrus.Fields{
+					"tag": data.Tag,
+				}).Info("fragment storage finish")
+				p.node.dones[data.Tag] <- true
+				return
+			}
+		}
+	}
+	logrus.WithFields(logrus.Fields{
+		"type": "upload response",
+		"from": s.Conn().RemotePeer(),
+		"data": data.String(),
+	}).Warn("invalid response")
 }
 
-func (p *UserUploadProtocol) Send(peerId peer.ID, tag string, data []byte) error {
-	req := &pb.UploadRequest{
-		Tag:  tag,
-		Data: data,
+func (p *UserUploadProtocol) SendUpload(peerId peer.ID, tag string) {
+	for i := int64(0); i <= p.packages[tag]; i++ {
+		err := p.node.sendPackage(peerId, tag, i)
+		if err != nil {
+			_ = p.node.sendPackage(peerId, tag, i)
+		}
+	}
+}
+
+func (p *UserUploadProtocol) sendPackage(peerId peer.ID, tag string, id int64) error {
+	var req *pb.UploadRequest
+	if id == p.packages[tag] {
+		req = &pb.UploadRequest{
+			Id:   id,
+			Tag:  tag,
+			Data: nil,
+		}
+	} else {
+		buf := make([]byte, lib.PackageSize)
+		src := p.node.srcs[tag]
+		n, err := src.ReadAt(buf, id*lib.PackageSize)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		req = &pb.UploadRequest{
+			Id:   id,
+			Tag:  tag,
+			Data: buf[:n],
+		}
 	}
 	signature, err := p.node.signProtoMessage(req)
 	if err != nil {
@@ -477,4 +581,40 @@ func (p *UserUploadProtocol) Send(peerId peer.ID, tag string, data []byte) error
 		return nil
 	}
 	return errors.New("failed to send upload protocol")
+}
+
+type UserOperationProtocol struct {
+	node       *UserNode
+	operations map[string]*tpUser.Operation
+	dones      map[string]chan bool
+}
+
+func NewUserOperationProtocol(n *UserNode) *UserOperationProtocol {
+	return &UserOperationProtocol{
+		node:       n,
+		operations: make(map[string]*tpUser.Operation),
+		dones:      make(map[string]chan bool),
+	}
+}
+
+func (p *UserOperationProtocol) SendOperationProtocol(peerId peer.ID, tag string) error {
+	op := &pb.OperationRequest{
+		Tag:       tag,
+		Operation: p.operations[tag].ToBytes(),
+	}
+	signature, err := p.node.signProtoMessage(op)
+	if err != nil {
+		return err
+	}
+	op.MessageData.Sign = signature
+	ok := p.node.sendProtoMessage(peerId, uploadOperation, op)
+	if ok {
+		logrus.WithFields(logrus.Fields{
+			"type": "operation request",
+			"to":   peerId,
+			"data": op.String(),
+		}).Info("protocol sent")
+		return nil
+	}
+	return errors.New("failed to send protocol")
 }

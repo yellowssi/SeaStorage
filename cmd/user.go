@@ -159,6 +159,7 @@ communicating with the transaction processor.`,
 				if len(commands) < 3 {
 					fmt.Println(errors.New("missing operand"))
 				} else {
+					// TODO: Select Sea To Store File
 					response, err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
 					if err != nil {
 						fmt.Println(err)

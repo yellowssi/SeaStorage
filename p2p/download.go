@@ -12,36 +12,38 @@ const (
 
 type SeaDownloadProtocol struct {
 	node     *SeaNode
-	requests map[string]*pb.DownloadRequest
+	requests map[string]map[string]*pb.DownloadRequest
 }
 
 func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	d := &SeaDownloadProtocol{
 		node:     node,
-		requests: make(map[string]*pb.DownloadRequest),
+		requests: make(map[string]map[string]*pb.DownloadRequest),
 	}
 	node.SetStreamHandler(downloadRequest, d.onDownloadRequest)
 	return d
 }
 
-func (d *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
+func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 
 }
 
 type UserDownloadProtocol struct {
 	node      *UserNode
-	responses map[string]*pb.DownloadResponse
-	done      chan bool
+	downloads map[string]chan bool
 }
 
-func NewUserDownloadProtocol(node *UserNode, done chan bool) *UserDownloadProtocol {
+func NewUserDownloadProtocol(node *UserNode) *UserDownloadProtocol {
 	d := &UserDownloadProtocol{
 		node:      node,
-		responses: make(map[string]*pb.DownloadResponse),
-		done:      done,
+		downloads: make(map[string]chan bool),
 	}
 	node.SetStreamHandler(downloadResponse, d.onDownloadResponse)
 	return d
 }
 
-func (d *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {}
+func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {}
+
+func (p *UserDownloadProtocol) SendDownloadProtocol() {
+
+}

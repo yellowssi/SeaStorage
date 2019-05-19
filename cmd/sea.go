@@ -23,13 +23,6 @@ import (
 	"os"
 )
 
-var (
-	storagePath   string
-	size          int64
-	listenAddress string
-	port          int
-)
-
 // seaCmd represents the sea command
 var seaCmd = &cobra.Command{
 	Use:   "sea",
@@ -55,7 +48,7 @@ var seaCmd = &cobra.Command{
 				fmt.Println(resp)
 			}
 		}
-		cli.Bootstrap(keyFile, storagePath, size, listenAddress, port)
+		cli.Bootstrap(keyFile, lib.StoragePath, lib.StorageSize, lib.ListenAddress, lib.ListenPort)
 	},
 }
 
@@ -71,8 +64,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// seaCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	seaCmd.Flags().StringVarP(&storagePath, "path", "P", lib.DefaultStoragePath, "the path for storage")
-	seaCmd.Flags().Int64VarP(&size, "size", "s", lib.DefaultStorageSize, "the size for storage")
-	seaCmd.Flags().StringVarP(&listenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
-	seaCmd.Flags().IntVarP(&port, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
+	seaCmd.Flags().StringVarP(&lib.StoragePath, "path", "P", lib.DefaultStoragePath, "the path for storage")
+	seaCmd.Flags().Int64VarP(&lib.StorageSize, "size", "s", lib.DefaultStorageSize, "the size for storage")
 }

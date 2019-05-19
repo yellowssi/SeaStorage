@@ -1,7 +1,9 @@
 package sea
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
@@ -52,13 +54,18 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress string, port int) {
+func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress string, listenPort int) {
 	privateKey, _ := ioutil.ReadFile(keyFile)
-	_, err := p2p.NewSeaNode(c.ClientFramework, storagePath, size, listenAddress, port, privateKey)
+	_, err := p2p.NewSeaNode(c.ClientFramework, storagePath, size, listenAddress, listenPort, crypto.HexToBytes(string(privateKey)))
 	if err != nil {
 		logrus.Error(err)
 		return
 	}
+	logrus.WithFields(logrus.Fields{
+		"listen address":    listenAddress,
+		"listen listenPort": listenPort,
+	}).Info("Sea Storage start working")
+	fmt.Println("Enter Ctrl+C to stop")
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs

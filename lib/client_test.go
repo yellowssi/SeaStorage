@@ -11,7 +11,7 @@ func init() {
 	if _, err := os.Stat("./test"); os.IsNotExist(err) {
 		GenerateKey("test", "./test/")
 	}
-	c, _ = NewClientFramework("Test", ClientCategoryUser, "http://localhost:8008", "./test/test.priv")
+	c, _ = NewClientFramework("Test", ClientCategoryUser, "./test/test.priv")
 }
 
 func TestClientFramework_Register(t *testing.T) {
@@ -29,8 +29,8 @@ func TestClientFramework_Show(t *testing.T) {
 	t.Log(u)
 }
 
-func TestClientFramework_ListAll(t *testing.T) {
-	response, err := c.ListAll("", 0)
+func TestListAll(t *testing.T) {
+	response, err := ListAll("", 0)
 	if err != nil {
 		t.Error(err)
 	}

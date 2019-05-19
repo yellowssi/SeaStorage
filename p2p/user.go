@@ -1,39 +1,57 @@
 package p2p
 
 import (
-	host "github.com/libp2p/go-libp2p-host"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	"math"
 	"os"
+
+	"github.com/deckarep/golang-set"
+	host "github.com/libp2p/go-libp2p-host"
+	peer "github.com/libp2p/go-libp2p-peer"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
-func UploadFile(inFile *os.File, dst string, signature tpUser.Operation) error {
-	//seas, err := lib.ListSeasPeerId("", 20)
-	//if err != nil {
-	//	return err
-	//}
-	//done := make(chan bool)
-	//n := NewUserNode(host, done)
-	//for _, s := range seas {
-	//	err = n.UserUploadQueryProtocol.Send()
-	//}
-	return nil
-}
-
-func DownloadFile(hash, dst string) error {
-	return nil
-}
-
 type UserNode struct {
+	seas map[string]mapset.Set
 	*Node
-	seas      []string
-	operation tpUser.Operation
 	*UserUploadQueryProtocol
 	*UserUploadProtocol
+	*UserOperationProtocol
+	*UserDownloadProtocol
 }
 
-func NewUserNode(host host.Host, done chan bool) *UserNode {
-	n := &UserNode{Node: NewNode(host), seas: make([]string, 0)}
-	n.UserUploadQueryProtocol = NewUserUploadQueryProtocol(n, done)
-	n.UserUploadProtocol = NewUserUploadProtocol(n, done)
+func NewUserNode(host host.Host) *UserNode {
+	n := &UserNode{Node: NewNode(host), seas: make(map[string]mapset.Set)}
+	n.UserUploadQueryProtocol = NewUserUploadQueryProtocol(n)
+	n.UserUploadProtocol = NewUserUploadProtocol(n)
+	n.UserOperationProtocol = NewUserOperationProtocol(n)
 	return n
+}
+
+func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []peer.ID) error {
+	done := make(chan bool)
+	tag := tpCrypto.SHA512HexFromBytes([]byte(operation.Path + operation.Name))
+	n.srcs[tag] = src
+	n.packages[tag] = int64(math.Ceil(float64(operation.Size) / float64(lib.PackageSize)))
+	n.dones[tag] = done
+	for _, s := range seas {
+		err := n.SendUploadQuery(s, operation.Path, operation.Name, operation.Size)
+		if err != nil {
+			err = n.SendUploadQuery(s, operation.Path, operation.Name, operation.Size)
+			if err != nil {
+				continue
+			}
+		}
+		n.seas[tag].Add(s)
+	}
+	<-done
+	delete(n.srcs, tag)
+	delete(n.packages, tag)
+	delete(n.dones, tag)
+	return nil
+}
+
+func (n *UserNode) DownloadFile(hash, dst string) error {
+	return nil
 }

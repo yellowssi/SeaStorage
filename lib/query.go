@@ -59,7 +59,7 @@ func ListSeasPeerId(start string, limit uint) ([]peer.ID, error) {
 }
 
 func sendRequest(url string, data []byte, contentType string) (map[string]interface{}, error) {
-	// Send request to validator URL
+	// SendUploadQuery request to validator URL
 	var response *http.Response
 	var err error
 	if len(data) > 0 {

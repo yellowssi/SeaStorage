@@ -206,7 +206,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 
 	hashes = make([]string, dataShards+parShards)
 	for i := range out {
-		_ = out[i].Close()
+		out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
 			return hashes, err
@@ -216,7 +216,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 		if err != nil {
 			return hashes, err
 		}
-		_ = f.Close()
+		f.Close()
 	}
 	return
 }

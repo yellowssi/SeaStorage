@@ -1,25 +1,33 @@
 package user
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 	"sync"
+
+	"github.com/libp2p/go-libp2p"
+	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
+	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	"gitlab.com/SeaStorage/SeaStorage/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/p2p"
 )
 
 type Client struct {
 	User *tpUser.User
 	PWD  string
+	*p2p.UserNode
 	*lib.ClientFramework
 }
 
@@ -38,7 +46,21 @@ func NewUserClient(name, keyFile string) (*Client, error) {
 			logrus.Error(err)
 		}
 	}
-	return &Client{User: u, PWD: "/", ClientFramework: c}, nil
+	priv, _ := ioutil.ReadFile(keyFile)
+	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
+	if err != nil {
+		return nil, err
+	}
+	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.ListenAddress, lib.ListenPort))
+	if err != nil {
+		return nil, err
+	}
+	host, err := libp2p.New(context.Background(), libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
+	if err != nil {
+		return nil, err
+	}
+	n := p2p.NewUserNode(host)
+	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
 }
 
 func (c *Client) UserRegister() error {
@@ -73,7 +95,7 @@ func (c *Client) GetSize() int {
 	return c.User.Root.Home.Size
 }
 
-func (c *Client) GetINode(p string) (storage.INode, error) {
+func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
 	}
@@ -97,8 +119,8 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
-		Action: payload.UserCreateDirectory,
+	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action: tpPayload.UserCreateDirectory,
 		Name:   c.Name,
 		PWD:    p,
 	}}, lib.DefaultWait)
@@ -108,6 +130,11 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[string]interface{}, error) {
 	if !strings.HasPrefix(src, "/") {
 		return nil, errors.New("the source path should be full path")
+	}
+	// Check Destination Path exists
+	_, err := c.User.Root.GetDirectory(dst)
+	if err != nil {
+		return nil, err
 	}
 	info, err := crypto.GenerateFileInfo(src, dataShards, parShards)
 	if err != nil {
@@ -123,16 +150,35 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
-		Action:   payload.UserCreateFile,
+
+	// TODO: 并行监视transaction完成情况，通过channel控制文件上传
+
+	go func() {
+		seas, err := lib.ListSeasPeerId("", 20)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		fragmentSeas := make([][]peer.ID, 0)
+		for i := range info.Fragments {
+			// TODO: Algorithm for select sea && user selected seas
+			fragmentSeas = append(fragmentSeas, []peer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
+		}
+		err = c.UploadFiles(info, dst, info.Name, fragmentSeas)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+	}()
+	return c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action:   tpPayload.UserCreateFile,
 		Name:     c.Name,
 		PWD:      dst,
 		FileInfo: info,
 	}}, lib.DefaultWait)
-	return response, err
 }
 
-func (c *Client) ListDirectory(p string) ([]storage.INodeInfo, error) {
+func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
 	}
@@ -156,8 +202,8 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
-		Action: payload.UserDeleteDirectory,
+	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action: tpPayload.UserDeleteDirectory,
 		Name:   c.Name,
 		PWD:    p,
 		Target: name,
@@ -179,8 +225,8 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := c.SendTransaction([]payload.SeaStoragePayload{{
-		Action: payload.UserDeleteFile,
+	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action: tpPayload.UserDeleteFile,
 		Name:   c.Name,
 		PWD:    p,
 		Target: name,
@@ -195,25 +241,25 @@ func (c *Client) DownloadFiles(p, dst string) {
 		return
 	}
 	switch iNode.(type) {
-	case *storage.File:
-		c.downloadFile(iNode.(*storage.File), dst)
-	case *storage.Directory:
-		c.downloadDirectory(iNode.(*storage.Directory), dst)
+	case *tpStorage.File:
+		c.downloadFile(iNode.(*tpStorage.File), dst)
+	case *tpStorage.Directory:
+		c.downloadDirectory(iNode.(*tpStorage.Directory), dst)
 	}
 }
 
-func (c *Client) downloadDirectory(dir *storage.Directory, dst string) {
+func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string) {
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
-		case *storage.File:
-			go c.downloadFile(iNode.(*storage.File), path.Join(dst, dir.Name))
-		case *storage.Directory:
-			go c.downloadDirectory(iNode.(*storage.Directory), path.Join(dst, dir.Name))
+		case *tpStorage.File:
+			go c.downloadFile(iNode.(*tpStorage.File), path.Join(dst, dir.Name))
+		case *tpStorage.Directory:
+			go c.downloadDirectory(iNode.(*tpStorage.Directory), path.Join(dst, dir.Name))
 		}
 	}
 }
 
-func (c *Client) downloadFile(f *storage.File, dst string) {
+func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
 	if err != nil {
 		fmt.Println(err)
@@ -224,7 +270,7 @@ func (c *Client) downloadFile(f *storage.File, dst string) {
 		if i-errCount == lib.DefaultDataShards {
 			break
 		}
-		err = p2p.DownloadFile(fragment.Hash, path.Join(lib.DefaultTmpPath, f.Hash))
+		err = c.DownloadFile(fragment.Hash, path.Join(lib.DefaultTmpPath, f.Hash))
 		if err != nil {
 			errCount++
 		}
@@ -284,26 +330,30 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-func (c *Client) uploadFiles(fileInfo storage.FileInfo, src, dst, name string, seas []string) error {
+func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst, name string, seas [][]peer.ID) error {
 	if len(seas) != len(fileInfo.Fragments) {
 		return errors.New("the storage destination is not enough")
 	}
 
 	var err error
 	var wg sync.WaitGroup
-	for i := range fileInfo.Fragments {
-		f, subErr := os.Open(path.Join(src, fileInfo.Fragments[i].Hash))
+	for i, fragment := range fileInfo.Fragments {
+		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
-		signature := c.GenerateOperation(dst, name, fileInfo.Fragments[i].Hash)
+		stat, subErr := f.Stat()
+		if subErr != nil {
+			continue
+		}
+		operation := c.GenerateOperation(dst, name, fragment.Hash, stat.Size())
 		wg.Add(1)
-		go func(signature tpUser.Operation) {
-			err = p2p.UploadFile(f, seas[i], signature)
+		go func(operation *tpUser.Operation) {
+			err = c.UploadFile(f, operation, seas[i])
 			if err != nil {
-				logrus.WithField("hash", fileInfo.Fragments[i].Hash).Error(err)
+				logrus.WithField("hash", fragment.Hash).Error(err)
 			}
-		}(*signature)
+		}(operation)
 	}
 	wg.Wait()
 	return err

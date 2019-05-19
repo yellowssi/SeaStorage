@@ -256,8 +256,8 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 //func (c *ClientFramework) subscribingToEvents(action string, id string) error {
 //}
 
-func (cf *ClientFramework) GenerateOperation(path, name, hash string) *tpUser.Operation {
-	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), path, name, hash, *cf.signer)
+func (cf *ClientFramework) GenerateOperation(path, name, hash string, size int64) *tpUser.Operation {
+	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), path, name, hash, size, *cf.signer)
 }
 
 func (cf *ClientFramework) Whoami() {
