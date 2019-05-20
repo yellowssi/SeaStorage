@@ -63,6 +63,7 @@ func NewUserClient(name, keyFile string) (*Client, error) {
 	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
 }
 
+// User register in the blockchain
 func (c *Client) UserRegister() error {
 	_, err := c.Register(c.Name)
 	if err != nil {
@@ -76,6 +77,7 @@ func (c *Client) UserRegister() error {
 	return c.Sync()
 }
 
+// Change Operation PWD
 func (c *Client) ChangePWD(dst string) error {
 	if !strings.HasPrefix(dst, "/") {
 		dst = path.Join(c.PWD, dst)
@@ -91,10 +93,12 @@ func (c *Client) ChangePWD(dst string) error {
 	return nil
 }
 
+// Get the total size of user's storage
 func (c *Client) GetSize() int64 {
 	return c.User.Root.Home.Size
 }
 
+// Get iNode of the path
 func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -108,6 +112,8 @@ func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 	return c.User.Root.GetINode(p, name)
 }
 
+// TODO: Create Directory & Create All Directory
+// Create all directory of the path
 func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -127,6 +133,7 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
+// Upload src file in the dst path
 func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[string]interface{}, error) {
 	if !strings.HasPrefix(src, "/") {
 		return nil, errors.New("the source path should be full path")
@@ -164,7 +171,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			// TODO: Algorithm for select sea && user selected seas
 			fragmentSeas = append(fragmentSeas, []peer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
 		}
-		err = c.UploadFiles(info, dst, fragmentSeas)
+		err = c.uploadFiles(info, dst, fragmentSeas)
 		if err != nil {
 			logrus.Error(err)
 			return
@@ -178,6 +185,41 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	}}, lib.DefaultWait)
 }
 
+// Upload the file into the seas
+func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]peer.ID) error {
+	if len(seas) != len(fileInfo.Fragments) {
+		return errors.New("the storage destination is not enough")
+	}
+
+	var err error
+	var wg sync.WaitGroup
+	for i, fragment := range fileInfo.Fragments {
+		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
+		defer func() {
+			f.Close()
+			os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
+		}()
+		if subErr != nil && os.IsNotExist(subErr) {
+			continue
+		}
+		stat, subErr := f.Stat()
+		if subErr != nil {
+			continue
+		}
+		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
+		wg.Add(1)
+		go func(operation *tpUser.Operation) {
+			err = c.UploadFile(f, operation, seas[i])
+			if err != nil {
+				logrus.WithField("hash", fragment.Hash).Error(err)
+			}
+		}(operation)
+	}
+	wg.Wait()
+	return err
+}
+
+// List directory infos in the path
 func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -188,6 +230,7 @@ func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	return c.User.Root.ListDirectory(p)
 }
 
+// Delete the directory of the path
 func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -211,6 +254,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
+// Delete the file of the path
 func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -234,6 +278,7 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
+// Download the file of the path into the dst path in the system
 func (c *Client) DownloadFiles(p, dst string) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
@@ -248,6 +293,7 @@ func (c *Client) DownloadFiles(p, dst string) {
 	}
 }
 
+// Download the directory and all the files in it into the dst path in the system
 func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string) {
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
@@ -259,6 +305,7 @@ func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string) {
 	}
 }
 
+// Download the file into the dst path in the system
 func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
 	if err != nil {
@@ -318,6 +365,7 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	}
 }
 
+// Sync user info from blockchain
 func (c *Client) Sync() error {
 	userBytes, err := c.GetData()
 	if err != nil {
@@ -329,37 +377,4 @@ func (c *Client) Sync() error {
 	}
 	c.User = u
 	return nil
-}
-
-func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]peer.ID) error {
-	if len(seas) != len(fileInfo.Fragments) {
-		return errors.New("the storage destination is not enough")
-	}
-
-	var err error
-	var wg sync.WaitGroup
-	for i, fragment := range fileInfo.Fragments {
-		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
-		defer func() {
-			f.Close()
-			os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
-		}()
-		if subErr != nil && os.IsNotExist(subErr) {
-			continue
-		}
-		stat, subErr := f.Stat()
-		if subErr != nil {
-			continue
-		}
-		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
-		wg.Add(1)
-		go func(operation *tpUser.Operation) {
-			err = c.UploadFile(f, operation, seas[i])
-			if err != nil {
-				logrus.WithField("hash", fragment.Hash).Error(err)
-			}
-		}(operation)
-	}
-	wg.Wait()
-	return err
 }
