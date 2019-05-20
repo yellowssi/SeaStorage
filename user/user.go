@@ -155,8 +155,8 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 
 	go func() {
 		seas, err := lib.ListSeasPeerId("", 20)
-		if err != nil {
-			logrus.Error(err)
+		if err != nil || len(seas) == 0 {
+			logrus.Error("failed to get seas:", err)
 			return
 		}
 		fragmentSeas := make([][]peer.ID, 0)
@@ -164,7 +164,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			// TODO: Algorithm for select sea && user selected seas
 			fragmentSeas = append(fragmentSeas, []peer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
 		}
-		err = c.UploadFiles(info, dst, info.Name, fragmentSeas)
+		err = c.UploadFiles(info, dst, fragmentSeas)
 		if err != nil {
 			logrus.Error(err)
 			return
@@ -331,7 +331,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst, name string, seas [][]peer.ID) error {
+func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]peer.ID) error {
 	if len(seas) != len(fileInfo.Fragments) {
 		return errors.New("the storage destination is not enough")
 	}
@@ -340,6 +340,10 @@ func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst, name string, seas
 	var wg sync.WaitGroup
 	for i, fragment := range fileInfo.Fragments {
 		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
+		defer func() {
+			f.Close()
+			os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
+		}()
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
@@ -347,7 +351,7 @@ func (c *Client) UploadFiles(fileInfo tpStorage.FileInfo, dst, name string, seas
 		if subErr != nil {
 			continue
 		}
-		operation := c.GenerateOperation(dst, name, fragment.Hash, stat.Size())
+		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
 		wg.Add(1)
 		go func(operation *tpUser.Operation) {
 			err = c.UploadFile(f, operation, seas[i])
