@@ -74,7 +74,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	}
 	info = storage.FileInfo{
 		Name:      inFileInfo.Name(),
-		Size:      int(fileInfo.Size()),
+		Size:      fileInfo.Size(),
 		Hash:      hash,
 		Key:       crypto.BytesToHex(keyAes),
 		Fragments: fragments,

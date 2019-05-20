@@ -91,7 +91,7 @@ func (c *Client) ChangePWD(dst string) error {
 	return nil
 }
 
-func (c *Client) GetSize() int {
+func (c *Client) GetSize() int64 {
 	return c.User.Root.Home.Size
 }
 
