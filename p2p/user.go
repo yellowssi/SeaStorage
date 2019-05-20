@@ -26,12 +26,14 @@ func NewUserNode(host host.Host) *UserNode {
 	n.UserUploadQueryProtocol = NewUserUploadQueryProtocol(n)
 	n.UserUploadProtocol = NewUserUploadProtocol(n)
 	n.UserOperationProtocol = NewUserOperationProtocol(n)
+	n.UserDownloadProtocol = NewUserDownloadProtocol(n)
 	return n
 }
 
 func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []peer.ID) error {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(operation.Path + operation.Name))
+	n.operations[tag] = operation
 	n.srcs[tag] = src
 	n.packages[tag] = int64(math.Ceil(float64(operation.Size) / float64(lib.PackageSize)))
 	n.dones[tag] = done
@@ -49,6 +51,7 @@ func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []
 	delete(n.srcs, tag)
 	delete(n.packages, tag)
 	delete(n.dones, tag)
+	delete(n.operations, tag)
 	return nil
 }
 

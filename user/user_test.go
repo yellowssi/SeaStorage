@@ -7,9 +7,16 @@ import (
 )
 
 var cli *Client
+var err error
 
 func init() {
-	cli, _ = NewUserClient("Test", "../lib/test/test.priv")
+	lib.TPURL = lib.DefaultTPURL
+	lib.ListenAddress = lib.DefaultListenAddress
+	lib.ListenPort = lib.DefaultListenPort
+	cli, err = NewUserClient("Test", "../lib/test/test.priv")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestClient_Register(t *testing.T) {

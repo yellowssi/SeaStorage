@@ -25,6 +25,7 @@ type SeaNode struct {
 	*SeaUploadProtocol
 	*SeaOperationProtocol
 	*SeaDownloadProtocol
+	*SeaDownloadConfirmProtocol
 }
 
 func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, listenAddress string, port int, priv []byte) (*SeaNode, error) {
@@ -71,6 +72,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, listenAd
 	seaNode.SeaUploadProtocol = NewSeaUploadProtocol(seaNode)
 	seaNode.SeaOperationProtocol = NewSeaOperationProtocol(seaNode)
 	seaNode.SeaDownloadProtocol = NewSeaDownloadProtocol(seaNode)
+	seaNode.SeaDownloadConfirmProtocol = NewSeaDownloadConfirmProtocol(seaNode)
 	return seaNode, nil
 }
 
