@@ -15,7 +15,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
@@ -235,8 +234,8 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 }
 
 type userDownloadInfo struct {
-	info tpStorage.FileInfo
 	dst  string
+	size int64
 	done chan bool
 }
 
@@ -297,7 +296,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 
 	if len(data.Data) == 0 {
 		// Verify fragments
-		targetFile := path.Join(downloadInfo.dst, downloadInfo.info.Name)
+		targetFile := path.Join(downloadInfo.dst, data.Hash)
 		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			logrus.Error("failed to create file:", targetFile)
@@ -318,7 +317,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 			}
 			_, err = f.WriteAt(fragment, lib.PackageSize*i)
 		}
-		err = f.Truncate(downloadInfo.info.Size)
+		err = f.Truncate(downloadInfo.size)
 		if err != nil {
 			logrus.Error("failed to truncate file:", targetFile)
 			f.Close()
@@ -373,16 +372,16 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 	}
 }
 
-func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, info tpStorage.FileInfo, dst string) error {
+func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash string, size int64) error {
 	done := make(chan bool)
-	p.downloads[info.Hash] = &userDownloadInfo{
-		info: info,
+	p.downloads[hash] = &userDownloadInfo{
 		dst:  dst,
+		size: size,
 		done: done,
 	}
 	req := &pb.DownloadRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
-		Hash:        info.Hash,
+		Hash:        hash,
 	}
 	signature, err := p.node.signProtoMessage(req)
 	if err != nil {
@@ -397,7 +396,7 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, info tpStora
 		}
 	}
 	<-done
-	delete(p.downloads, info.Hash)
+	delete(p.downloads, hash)
 	return nil
 }
 

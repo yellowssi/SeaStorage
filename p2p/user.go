@@ -1,6 +1,9 @@
 package p2p
 
 import (
+	"errors"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	"math"
 	"os"
 
@@ -55,6 +58,20 @@ func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []
 	return nil
 }
 
-func (n *UserNode) DownloadFile(hash, dst string) error {
-	return nil
+func (n *UserNode) DownloadFragment(dst string, fragment *storage.Fragment) error {
+	for _, s := range fragment.Seas {
+		publicKey, err := crypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s.PublicKey))
+		if err != nil {
+			continue
+		}
+		peerId, err := peer.IDFromPublicKey(publicKey)
+		if err != nil {
+			continue
+		}
+		err = n.SendDownloadProtocol(peerId, dst, fragment.Hash, fragment.Size)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.New("failed to download fragment")
 }

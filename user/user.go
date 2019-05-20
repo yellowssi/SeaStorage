@@ -266,11 +266,12 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 		return
 	}
 	errCount := 0
+	storagePath := path.Join(lib.DefaultTmpPath, f.Hash)
 	for i, fragment := range f.Fragments {
 		if i-errCount == lib.DefaultDataShards {
 			break
 		}
-		err = c.DownloadFile(fragment.Hash, path.Join(lib.DefaultTmpPath, f.Hash))
+		err = c.DownloadFragment(storagePath, fragment)
 		if err != nil {
 			errCount++
 		}

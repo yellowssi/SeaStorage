@@ -61,7 +61,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 		return
 	}
 	err = os.Mkdir(path.Join(lib.DefaultTmpPath, hash), 0755)
-	hashes, err := SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
+	hashes, fragmentSize, err := SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
 	if err != nil {
 		return
 	}
@@ -69,6 +69,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	for i := range fragments {
 		fragments[i] = &storage.Fragment{
 			Hash: hashes[i],
+			Size: fragmentSize,
 			Seas: make([]*storage.FragmentSea, 0),
 		}
 	}
@@ -154,7 +155,7 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 	return
 }
 
-func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hashes []string, err error) {
+func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hashes []string, fragmentSize int64, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
 		return
@@ -164,7 +165,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	if _, err := os.Stat(outPath); os.IsNotExist(err) {
 		err = os.MkdirAll(outPath, 0644)
 		if err != nil {
-			return hashes, err
+			return hashes, fragmentSize, err
 		}
 	}
 	enc, err := reedsolomon.NewStream(dataShards, parShards)
@@ -190,7 +191,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 		out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
-			return hashes, err
+			return hashes, fragmentSize, err
 		}
 		input[i] = f
 	}
@@ -209,12 +210,16 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 		out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
-			return hashes, err
+			return hashes, fragmentSize, err
+		}
+		if i == 0 {
+			stat, _ := f.Stat()
+			fragmentSize = stat.Size()
 		}
 		out[i] = f
 		hashes[i], err = CalFileHash(out[i])
 		if err != nil {
-			return hashes, err
+			return hashes, fragmentSize, err
 		}
 		f.Close()
 	}
