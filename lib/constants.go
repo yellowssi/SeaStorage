@@ -1,6 +1,10 @@
 package lib
 
-import "crypto/aes"
+import (
+	"crypto/aes"
+
+	ma "github.com/multiformats/go-multiaddr"
+)
 
 const (
 	// Config Variable
@@ -31,9 +35,14 @@ const (
 )
 
 var (
-	TPURL         string
-	StoragePath   string
-	StorageSize   int64
-	ListenAddress string
-	ListenPort    int
+	TPURL          string
+	StoragePath    string
+	StorageSize    int64
+	ListenAddress  string
+	ListenPort     int
+	BootstrapAddrs []ma.Multiaddr
+	// TODO: Build Base P2P Bootstrap Network && Build docker for bootstrap
+	DefaultBootstrapAddrs = []string{
+		"/ip4/127.0.0.1/tcp/5001/p2p/",
+	}
 )

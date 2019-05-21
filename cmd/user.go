@@ -59,7 +59,7 @@ communicating with the transaction processor.`,
 			fmt.Println(errors.New("the name of user/sea is required"))
 			os.Exit(0)
 		}
-		cli, err := user.NewUserClient(name, keyFile)
+		cli, err := user.NewUserClient(name, keyFile, lib.BootstrapAddrs)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

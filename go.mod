@@ -37,7 +37,7 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.0.11
 	github.com/libp2p/go-libp2p-net v0.0.2
 	github.com/libp2p/go-libp2p-peer v0.1.1
-	github.com/libp2p/go-libp2p-peerstore v0.0.6 // indirect
+	github.com/libp2p/go-libp2p-peerstore v0.0.6
 	github.com/libp2p/go-libp2p-protocol v0.0.1
 	github.com/libp2p/go-maddr-filter v0.0.4 // indirect
 	github.com/libp2p/go-mplex v0.0.2 // indirect

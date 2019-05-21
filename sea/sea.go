@@ -3,13 +3,16 @@ package sea
 import (
 	"context"
 	"fmt"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -59,7 +62,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress string, listenPort int) {
+func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddrs []ma.Multiaddr) {
 	priv, _ := ioutil.ReadFile(keyFile)
 	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
 	if err != nil {
@@ -71,7 +74,8 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress
 		logrus.Error(err)
 		return
 	}
-	host, err := libp2p.New(context.Background(), libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
+	ctx := context.Background()
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -81,9 +85,40 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress
 		logrus.Error(err)
 		return
 	}
+	kadDHT, err := p2pDHT.New(ctx, host)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	if err = kadDHT.Bootstrap(ctx); err != nil {
+		logrus.Error(err)
+		return
+	}
+	var wg sync.WaitGroup
+	for _, addr := range bootstrapAddrs {
+		peerInfo, err := peerstore.InfoFromP2pAddr(addr)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"peer": addr,
+			}).Warn("failed to get peer info:", err)
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = host.Connect(ctx, *peerInfo)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"peer": peerInfo,
+				}).Warn("failed to connect peer:", err)
+			}
+		}()
+	}
+	wg.Wait()
 	logrus.WithFields(logrus.Fields{
-		"listen address":    listenAddress,
-		"listen listenPort": listenPort,
+		"listen address":    lib.ListenAddress,
+		"listen listenPort": lib.ListenPort,
+		"peer id":           host.ID().String(),
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")
 	sigs := make(chan os.Signal, 1)

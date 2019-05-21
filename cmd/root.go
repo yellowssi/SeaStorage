@@ -16,21 +16,23 @@ package cmd
 
 import (
 	"fmt"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"os"
 	"os/user"
 	"path"
 
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 var (
-	cfgFile string
-	name    string
-	keyFile string
-	debug   bool
+	cfgFile        string
+	name           string
+	keyFile        string
+	debug          bool
+	bootstrapAddrs []string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -66,6 +68,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
 	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
+	rootCmd.PersistentFlags().StringArrayVarP(&bootstrapAddrs, "bootstrap", "b", lib.DefaultBootstrapAddrs, "the bootstrap node addresses of the p2p network")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -91,6 +94,17 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+
+	// Check bootstrap addresses
+	for _, addr := range bootstrapAddrs {
+		multiaddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"peer": addr,
+			}).Warn("failed to init peer addr")
+		}
+		lib.BootstrapAddrs = append(lib.BootstrapAddrs, multiaddr)
 	}
 
 	if debug {

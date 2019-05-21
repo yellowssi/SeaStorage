@@ -13,7 +13,7 @@ func init() {
 	lib.TPURL = lib.DefaultTPURL
 	lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
-	cli, err = NewUserClient("Test", "../lib/test/test.priv")
+	cli, err = NewUserClient("Test", "../lib/test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
 		panic(err)
 	}

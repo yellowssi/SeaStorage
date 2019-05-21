@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"io/ioutil"
 	"os"
 	"path"
@@ -12,7 +13,8 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
+	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
+	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -31,7 +33,7 @@ type Client struct {
 	*lib.ClientFramework
 }
 
-func NewUserClient(name, keyFile string) (*Client, error) {
+func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client, error) {
 	c, err := lib.NewClientFramework(name, lib.ClientCategoryUser, keyFile)
 	if err != nil {
 		return nil, err
@@ -55,11 +57,41 @@ func NewUserClient(name, keyFile string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	host, err := libp2p.New(context.Background(), libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
+	ctx := context.Background()
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
 	if err != nil {
 		return nil, err
 	}
 	n := p2p.NewUserNode(host)
+	// TODO: 当用户需要是启动监听，上传或下载结束后停止监听
+	kadDHT, err := p2pDHT.New(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if err = kadDHT.Bootstrap(ctx); err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	for _, addr := range bootstrapAddrs {
+		peerInfo, err := peerstore.InfoFromP2pAddr(addr)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"peer": addr,
+			}).Warn("failed to get peer info:", err)
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = host.Connect(ctx, *peerInfo)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"peer": peerInfo,
+				}).Warn("failed to connect peer:", err)
+			}
+		}()
+	}
+	wg.Wait()
 	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
 }
 
@@ -166,10 +198,10 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			logrus.Error("failed to get seas:", err)
 			return
 		}
-		fragmentSeas := make([][]peer.ID, 0)
+		fragmentSeas := make([][]p2pPeer.ID, 0)
 		for i := range info.Fragments {
 			// TODO: Algorithm for select sea && user selected seas
-			fragmentSeas = append(fragmentSeas, []peer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
+			fragmentSeas = append(fragmentSeas, []p2pPeer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
 		}
 		err = c.uploadFiles(info, dst, fragmentSeas)
 		if err != nil {
@@ -186,7 +218,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 }
 
 // Upload the file into the seas
-func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]peer.ID) error {
+func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pPeer.ID) error {
 	if len(seas) != len(fileInfo.Fragments) {
 		return errors.New("the storage destination is not enough")
 	}

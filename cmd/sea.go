@@ -40,15 +40,13 @@ var seaCmd = &cobra.Command{
 		}
 		err = cli.Sync()
 		if err != nil {
-			resp, err := cli.Register(cli.Name)
+			err := cli.SeaRegister()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
-			} else {
-				fmt.Println(resp)
 			}
 		}
-		cli.Bootstrap(keyFile, lib.StoragePath, lib.StorageSize, lib.ListenAddress, lib.ListenPort)
+		cli.Bootstrap(keyFile, lib.StoragePath, lib.StorageSize, lib.BootstrapAddrs)
 	},
 }
 
