@@ -1,16 +1,11 @@
 package p2p
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/sawtooth-sdk-go/signing"
-	"github.com/libp2p/go-libp2p"
-	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
-	ma "github.com/multiformats/go-multiaddr"
+	p2pHost "github.com/libp2p/go-libp2p-host"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
@@ -19,7 +14,6 @@ type SeaNode struct {
 	storagePath string
 	size        int64
 	freeSize    int64
-	signer      *signing.Signer
 	*Node
 	*SeaUploadQueryProtocol
 	*SeaUploadProtocol
@@ -28,7 +22,7 @@ type SeaNode struct {
 	*SeaDownloadConfirmProtocol
 }
 
-func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, listenAddress string, port int, priv []byte) (*SeaNode, error) {
+func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2pHost.Host) (*SeaNode, error) {
 	freeSize := size
 	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
 		err = os.MkdirAll(storagePath, 0755)
@@ -45,27 +39,11 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, listenAd
 		}
 		freeSize = size - totalSize
 	}
-	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(priv)
-	if err != nil {
-		return nil, err
-	}
-	listen, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", listenAddress, port))
-	if err != nil {
-		return nil, err
-	}
-	host, err := libp2p.New(context.Background(), libp2p.ListenAddrs(listen), libp2p.Identity(privateKey))
-	if err != nil {
-		return nil, err
-	}
-	privKey := signing.NewSecp256k1PrivateKey(priv)
-	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
-	signer := cryptoFactory.NewSigner(privKey)
 	seaNode := &SeaNode{
 		ClientFramework: c,
 		storagePath:     storagePath,
 		size:            size,
 		freeSize:        freeSize,
-		signer:          signer,
 		Node:            NewNode(host),
 	}
 	seaNode.SeaUploadQueryProtocol = NewSeaUploadQueryProtocol(seaNode)

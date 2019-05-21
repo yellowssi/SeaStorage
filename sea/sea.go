@@ -1,16 +1,21 @@
 package sea
 
 import (
+	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/p2p"
 	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/libp2p/go-libp2p"
+	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/p2p"
 )
 
 type Client struct {
@@ -55,8 +60,23 @@ func (c *Client) Sync() error {
 }
 
 func (c Client) Bootstrap(keyFile, storagePath string, size int64, listenAddress string, listenPort int) {
-	privateKey, _ := ioutil.ReadFile(keyFile)
-	_, err := p2p.NewSeaNode(c.ClientFramework, storagePath, size, listenAddress, listenPort, crypto.HexToBytes(string(privateKey)))
+	priv, _ := ioutil.ReadFile(keyFile)
+	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.ListenAddress, lib.ListenPort))
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	host, err := libp2p.New(context.Background(), libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	_, err = p2p.NewSeaNode(c.ClientFramework, storagePath, size, host)
 	if err != nil {
 		logrus.Error(err)
 		return
