@@ -10,10 +10,12 @@ var cli *Client
 var err error
 
 func init() {
-	lib.TPURL = lib.DefaultTPURL
+	lib.GenerateKey("test", "test")
+	//lib.TPURL = lib.DefaultTPURL
+	lib.TPURL = "http://127.0.0.1:8008"
 	lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
-	cli, err = NewUserClient("Test", "../lib/test/test.priv", lib.BootstrapAddrs)
+	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
 		panic(err)
 	}

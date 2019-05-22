@@ -11,9 +11,7 @@ import (
 var key = crypto.GenerateRandomAESKey(lib.AESKeySize)
 
 func init() {
-	if _, err := os.Stat("./test"); os.IsNotExist(err) {
-		lib.GenerateKey("test", "./test/")
-	}
+	lib.GenerateKey("test", "./test/")
 }
 
 func TestEncryptFile(t *testing.T) {

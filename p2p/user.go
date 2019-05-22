@@ -40,6 +40,7 @@ func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []
 	n.srcs[tag] = src
 	n.packages[tag] = int64(math.Ceil(float64(operation.Size) / float64(lib.PackageSize)))
 	n.dones[tag] = done
+	n.seas[tag] = mapset.NewSet()
 	for _, s := range seas {
 		err := n.SendUploadQuery(s, operation.Path, operation.Name, operation.Size)
 		if err != nil {
