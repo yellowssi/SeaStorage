@@ -30,23 +30,19 @@ require (
 	github.com/klauspost/reedsolomon v1.9.1
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pty v1.1.4 // indirect
-	github.com/libp2p/go-libp2p v0.0.24
+	github.com/libp2p/go-libp2p v0.0.25
 	github.com/libp2p/go-libp2p-crypto v0.0.2
-	github.com/libp2p/go-libp2p-discovery v0.0.3 // indirect
 	github.com/libp2p/go-libp2p-host v0.0.3
 	github.com/libp2p/go-libp2p-kad-dht v0.0.11
 	github.com/libp2p/go-libp2p-net v0.0.2
 	github.com/libp2p/go-libp2p-peer v0.1.1
 	github.com/libp2p/go-libp2p-peerstore v0.0.6
 	github.com/libp2p/go-libp2p-protocol v0.0.1
-	github.com/libp2p/go-maddr-filter v0.0.4 // indirect
-	github.com/libp2p/go-mplex v0.0.2 // indirect
+	github.com/libp2p/go-tcp-transport v0.0.4 // indirect
 	github.com/manifoldco/promptui v0.3.2
-	github.com/mattn/go-isatty v0.0.7 // indirect
-	github.com/miekg/dns v1.1.11 // indirect
+	github.com/mattn/go-isatty v0.0.8 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/multiformats/go-multiaddr v0.0.4
-	github.com/multiformats/go-multistream v0.0.4 // indirect
 	github.com/nicksnyder/go-i18n v1.10.0 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
@@ -66,7 +62,7 @@ require (
 	golang.org/x/sys v0.0.0-20190520201301-c432e742b0af // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190520220859-26647e34d3c0 // indirect
+	golang.org/x/tools v0.0.0-20190521203540-521d6ed310dd // indirect
 	google.golang.org/appengine v1.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20190516172635-bb713bdc0e52 // indirect
 	google.golang.org/grpc v1.20.1 // indirect

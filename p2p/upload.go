@@ -29,6 +29,10 @@ const (
 	uploadOperation     = "/SeaStorage/upload/operation/1.0.0"
 )
 
+/*
+ * Sea Upload Handler
+ */
+
 type SeaUploadQueryProtocol struct {
 	node *SeaNode
 }
@@ -94,7 +98,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
 	if ok {
 		queryMap, ok := p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
-		if ok {
+		if !ok {
 			p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*pb.UploadQueryResponse{tag: resp}
 		} else {
 			queryMap[tag] = resp
@@ -392,6 +396,10 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 	}
 }
 
+/*
+ * User Upload Handler
+ */
+
 type UserUploadQueryProtocol struct {
 	node *UserNode
 	srcs map[string]*os.File
@@ -566,7 +574,14 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 }
 
 func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
-	for i := int64(0); i <= p.packages[tag]; i++ {
+	packages, ok := p.packages[tag]
+	if !ok {
+		logrus.WithFields(logrus.Fields{
+			"tag": tag,
+		}).Warn("invalid tag")
+		return
+	}
+	for i := int64(0); i <= packages; i++ {
 		err := p.node.sendPackage(peerId, messageId, tag, i)
 		if err != nil {
 			_ = p.node.sendPackage(peerId, messageId, tag, i)

@@ -65,11 +65,12 @@ func TestSplitFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	hashes, err := SplitFile(inFile, "./test", lib.DefaultDataShards, lib.DefaultParShards)
+	hashes, size, err := SplitFile(inFile, "./test", lib.DefaultDataShards, lib.DefaultParShards)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(hashes)
+	t.Log("size:", size)
+	t.Log("hashes:", hashes)
 }
 
 func TestMergeFile(t *testing.T) {
