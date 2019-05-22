@@ -16,7 +16,7 @@ const (
 	EncryptSuffix        string = ".enc"
 	DefaultDataShards    int    = 5
 	DefaultParShards     int    = 3
-	DefaultTPURL         string = "http://127.0.0.1:8008"
+	DefaultTPURL         string = "http://129.204.249.51:8008"
 	DefaultStoragePath   string = "/var/lib/SeaStorage"
 	DefaultStorageSize   int64  = 1024 * 1024 * 1024
 	DefaultListenAddress string = "0.0.0.0"
@@ -43,6 +43,6 @@ var (
 	BootstrapAddrs []ma.Multiaddr
 	// TODO: Build Base P2P Bootstrap Network && Build docker for bootstrap
 	DefaultBootstrapAddrs = []string{
-		"/ip4/127.0.0.1/tcp/5001/p2p/",
+		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
 	}
 )
