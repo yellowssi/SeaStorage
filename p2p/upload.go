@@ -217,13 +217,12 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			os.Remove(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
 		}
 		err = f.Truncate(queryResponse.Size)
+		f.Close()
 		if err != nil {
 			lib.Logger.Error("failed to truncate file:", targetFile)
-			f.Close()
 			os.Remove(targetFile)
 			return
 		}
-		f.Close()
 		// Calculate the hash of file
 		f, err = os.Open(targetFile)
 		defer f.Close()
