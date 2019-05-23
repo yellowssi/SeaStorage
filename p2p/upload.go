@@ -266,6 +266,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			}
 		} else {
 			lib.Logger.Error("file exists:", filename)
+			s.Reset()
 		}
 	}
 }
