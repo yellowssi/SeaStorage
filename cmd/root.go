@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"path"
@@ -68,7 +69,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	logrus.SetOutput(writer)
+	mw := io.MultiWriter(os.Stdout, writer)
+	logrus.SetOutput(mw)
 	cobra.OnInitialize(initConfig)
 
 	// Check bootstrap addresses
