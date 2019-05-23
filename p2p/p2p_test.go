@@ -8,6 +8,7 @@ import (
 	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
@@ -23,9 +24,15 @@ var seaPeer p2pPeer.ID
 var userPeer p2pPeer.ID
 
 func init() {
+	lib.Logger = logrus.New()
+	logrus.SetFormatter(&logrus.TextFormatter{})
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(os.Stdout)
+	lib.TPURL = lib.DefaultTPURL
 	lib.GenerateKey("sea", "test")
 	lib.GenerateKey("user", "test")
 	cli, _ = lib.NewClientFramework("test", lib.ClientCategorySea, "./test/sea.priv")
+	cli.Register("test")
 	seaAddr, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6667")
 	seaPrivBytes, _ := ioutil.ReadFile("./test/sea.priv")
 	seaPriv, _ := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(seaPrivBytes)))

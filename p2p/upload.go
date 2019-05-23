@@ -213,6 +213,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 				return
 			}
 		}
+		for i := int64(0); i < data.Id; i++ {
+			os.Remove(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
+		}
 		err = f.Truncate(queryResponse.Size)
 		if err != nil {
 			lib.Logger.Error("failed to truncate file:", targetFile)
