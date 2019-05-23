@@ -3,7 +3,7 @@ package lib
 import (
 	"crypto/aes"
 	"github.com/sirupsen/logrus"
-	"os"
+	"os/user"
 	"path"
 
 	ma "github.com/multiformats/go-multiaddr"
@@ -57,10 +57,11 @@ var (
 )
 
 func init() {
-	homeDir, err := os.UserHomeDir()
+	u, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
+	homeDir := u.HomeDir
 	DefaultConfigPath = path.Join(homeDir, ".SeaStorage")
 	DefaultKeyPath = path.Join(DefaultConfigPath, "keys")
 	DefaultStoragePath = path.Join(DefaultConfigPath, "storage")
