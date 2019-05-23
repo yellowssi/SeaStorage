@@ -46,9 +46,14 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	}
 	inFile.Close()
 	outFile.Close()
+	err = os.Mkdir(path.Join(lib.DefaultTmpPath, hash), 0755)
+	if err != nil {
+		return
+	}
+	os.Rename(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix), path.Join(lib.DefaultTmpPath, hash, hash))
 
 	// Split File
-	f, err := os.Open(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix))
+	f, err := os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
 	if err != nil {
 		return
 	}
@@ -60,7 +65,6 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	if err != nil {
 		return
 	}
-	err = os.Mkdir(path.Join(lib.DefaultTmpPath, hash), 0755)
 	hashes, fragmentSize, err := SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
 	if err != nil {
 		return

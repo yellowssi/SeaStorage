@@ -207,7 +207,6 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		err = c.uploadFiles(info, dst, fragmentSeas)
 		if err != nil {
 			lib.Logger.Error(err)
-			return
 		}
 	}()
 	return c.SendTransaction([]tpPayload.SeaStoragePayload{{
@@ -241,12 +240,12 @@ func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]p
 		}
 		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
 		wg.Add(1)
-		go func(operation *tpUser.Operation) {
+		go func() {
 			err = c.Upload(f, operation, seas[i])
 			if err != nil {
 				lib.Logger.WithField("hash", fragment.Hash).Error(err)
 			}
-		}(operation)
+		}()
 	}
 	wg.Wait()
 	return err

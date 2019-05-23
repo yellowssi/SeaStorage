@@ -1,18 +1,25 @@
 package user
 
 import (
+	"github.com/sirupsen/logrus"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"os"
 	"path"
 	"testing"
+	"time"
 )
 
 var cli *Client
 var err error
 
 func init() {
+	lib.Logger = logrus.New()
+	logrus.SetFormatter(&logrus.TextFormatter{})
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetOutput(os.Stdout)
 	lib.GenerateKey("test", "test")
-	lib.TPURL = lib.DefaultTPURL
-	//lib.TPURL = "http://127.0.0.1:8008"
+	//lib.TPURL = lib.DefaultTPURL
+	lib.TPURL = "http://127.0.0.1:8008"
 	lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
@@ -59,6 +66,7 @@ func TestClient_CreateFile(t *testing.T) {
 }
 
 func TestClient_DownloadFiles(t *testing.T) {
+	time.Sleep(5 * time.Second)
 	cli.DownloadFiles("/home/SeaStorage/hostname", "./test")
 }
 
