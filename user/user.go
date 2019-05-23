@@ -202,9 +202,20 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		fragmentSeas := make([][]p2pPeer.ID, 0)
 		for i := range info.Fragments {
 			// TODO: Algorithm for select sea && user selected seas
-			fragmentSeas = append(fragmentSeas, []p2pPeer.ID{seas[i%len(seas)], seas[(i+3)%len(seas)], seas[(i+5)%len(seas)]})
+			peers := make([]p2pPeer.ID, 0)
+			if len(seas) <= 3 {
+				peers = append(peers, seas...)
+			} else {
+				for j := i; j <= i+len(seas); j++ {
+					peers = append(peers, seas[j%len(seas)])
+					if len(peers) >= 3 {
+						break
+					}
+				}
+			}
+			fragmentSeas = append(fragmentSeas, peers)
 		}
-		err = c.uploadFiles(info, dst, fragmentSeas)
+		err = c.uploadFile(info, dst, fragmentSeas)
 		if err != nil {
 			lib.Logger.Error(err)
 		}
@@ -225,7 +236,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 }
 
 // Upload the file into the seas
-func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pPeer.ID) error {
+func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pPeer.ID) error {
 	if len(seas) != len(fileInfo.Fragments) {
 		return errors.New("the storage destination is not enough")
 	}

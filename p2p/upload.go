@@ -362,7 +362,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("failed to unmarshal")
+		}).Warn("failed to unmarshal:", err)
 		return
 	}
 	if !op.Verify() || op.Hash != hash {
@@ -384,7 +384,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Error("failed to send transaction")
+		}).Error("failed to send transaction:", err)
 		resp, err = p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
 			Action:    tpPayload.UserCreateDirectory,
 			Name:      p.node.Name,
@@ -395,7 +395,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 				"type": "operation request",
 				"from": s.Conn().RemotePeer().String(),
 				"tag":  data.Tag,
-			}).Error("failed to send transaction")
+			}).Error("failed to send transaction:", err)
 		}
 		//return
 	}
@@ -413,7 +413,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 			"from":     s.Conn().RemotePeer().String(),
 			"data":     data.String(),
 			"response": resp,
-		}).Warn("failed to rename file")
+		}).Warn("failed to rename file:", err)
 	}
 }
 
@@ -581,11 +581,11 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 			p.node.seas[data.Tag].Remove(s.Conn().RemotePeer())
 			if len(p.node.seas[data.Tag].ToSlice()) == 0 {
 				lib.Logger.WithFields(logrus.Fields{
-					"tag": data.Tag,
+					"data": data.String(),
 				}).Info("fragment storage finish")
 				p.node.dones[data.Tag] <- true
-				return
 			}
+			return
 		}
 	}
 	lib.Logger.WithFields(logrus.Fields{
@@ -593,7 +593,6 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 		"from": s.Conn().RemotePeer().String(),
 		"tag":  data.Tag,
 	}).Warn("invalid response")
-	os.Exit(1)
 }
 
 func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
