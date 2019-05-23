@@ -11,8 +11,8 @@ var err error
 
 func init() {
 	lib.GenerateKey("test", "test")
-	//lib.TPURL = lib.DefaultTPURL
-	lib.TPURL = "http://127.0.0.1:8008"
+	lib.TPURL = lib.DefaultTPURL
+	//lib.TPURL = "http://127.0.0.1:8008"
 	lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)

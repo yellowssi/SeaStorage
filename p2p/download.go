@@ -76,7 +76,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 		return
 	}
 
-	err = p.sendDownload(s.Conn().RemotePeer(), tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Hash)
+	err = p.sendDownload(s.Conn().RemotePeer(), data.MessageData.Id, tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Hash)
 	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "download request",
@@ -92,7 +92,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 	}
 }
 
-func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, peerPub, hash string) error {
+func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, hash string) error {
 	filename := path.Join(lib.StoragePath, peerPub, hash)
 	src, err := os.Open(filename)
 	if err != nil {
@@ -116,22 +116,23 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, peerPub, hash string)
 		}}
 	}
 	for i := int64(0); i <= packages; i++ {
-		err := p.sendPackage(peerId, peerPub, hash, i)
+		err := p.sendPackage(peerId, messageId, peerPub, hash, i)
 		if err != nil {
-			err = p.sendPackage(peerId, peerPub, hash, i)
+			err = p.sendPackage(peerId, messageId, peerPub, hash, i)
 		}
 	}
 	return err
 }
 
-func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, peerPub, hash string, id int64) error {
+func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
 	uploadInfo := p.srcs[peerPub][hash]
 	if id == p.srcs[peerPub][hash].packages {
 		req = &pb.DownloadResponse{
-			Id:   id,
-			Hash: hash,
-			Data: nil,
+			MessageData: p.node.NewMessageData(messageId, true),
+			Id:          id,
+			Hash:        hash,
+			Data:        nil,
 		}
 	} else {
 		buf := make([]byte, lib.PackageSize)
@@ -140,9 +141,10 @@ func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, peerPub, hash string, 
 			return err
 		}
 		req = &pb.DownloadResponse{
-			Id:   id,
-			Hash: hash,
-			Data: buf[:n],
+			MessageData: p.node.NewMessageData(messageId, true),
+			Id:          id,
+			Hash:        hash,
+			Data:        buf[:n],
 		}
 	}
 	signature, err := p.node.signProtoMessage(req)
@@ -222,9 +224,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 			"data": data.String(),
 		}).Info("download success")
 	} else {
-		err = p.node.sendPackage(s.Conn().RemotePeer(), peerPub, data.Hash, data.Id)
+		err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.Id)
 		if err != nil {
-			err = p.node.sendPackage(s.Conn().RemotePeer(), peerPub, data.Hash, data.Id)
+			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.Id)
 			if err != nil {
 				lib.Logger.Error("failed to send package")
 				return

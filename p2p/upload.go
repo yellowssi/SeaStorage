@@ -397,13 +397,23 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 				"data": data.String(),
 			}).Error("failed to send transaction")
 		}
-	} else {
+		//return
+	}
+	lib.Logger.WithFields(logrus.Fields{
+		"type":     "operation request",
+		"from":     s.Conn().RemotePeer().String(),
+		"data":     data.String(),
+		"response": resp,
+	}).Info("send transaction success")
+	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
+	err = os.Rename(path.Join(p.node.storagePath, peerPub, data.Tag), path.Join(p.node.storagePath, peerPub, op.Hash))
+	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
 			"type":     "operation request",
 			"from":     s.Conn().RemotePeer().String(),
 			"data":     data.String(),
 			"response": resp,
-		}).Info("send transaction success")
+		}).Warn("failed to rename file")
 	}
 }
 

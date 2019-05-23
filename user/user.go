@@ -191,6 +191,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	}
 
 	// TODO: 并行监视transaction完成情况，通过channel控制文件上传
+	// TODO: log goroutine
 
 	go func() {
 		seas, err := lib.ListSeasPeerId("", 20)

@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
 var cli *lib.ClientFramework
@@ -22,17 +23,18 @@ var seaNode *SeaNode
 var userNode *UserNode
 var seaPeer p2pPeer.ID
 var userPeer p2pPeer.ID
+var hash string
+var size int64
 
 func init() {
 	lib.Logger = logrus.New()
 	logrus.SetFormatter(&logrus.TextFormatter{})
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
-	lib.TPURL = lib.DefaultTPURL
+	lib.StoragePath = lib.DefaultStoragePath
 	lib.GenerateKey("sea", "test")
 	lib.GenerateKey("user", "test")
 	cli, _ = lib.NewClientFramework("test", lib.ClientCategorySea, "./test/sea.priv")
-	cli.Register("test")
 	seaAddr, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6667")
 	seaPrivBytes, _ := ioutil.ReadFile("./test/sea.priv")
 	seaPriv, _ := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(seaPrivBytes)))
@@ -57,11 +59,17 @@ func init() {
 func TestUpload(t *testing.T) {
 	src, _ := os.Open("./test/user.pub")
 	stat, _ := src.Stat()
-	hash, _ := crypto.CalFileHash(src)
-	operation := cli.GenerateOperation("/", "test", hash, stat.Size())
+	size = stat.Size()
+	hash, _ = crypto.CalFileHash(src)
+	operation := cli.GenerateOperation("/", "test", hash, size)
 	err := userNode.Upload(src, operation, []p2pPeer.ID{seaPeer})
 	if err != nil {
 		t.Error(err)
 	}
-	select {}
+	time.Sleep(5 * time.Second)
+}
+
+func TestDownload(t *testing.T) {
+	userNode.SendDownloadProtocol(seaPeer, "./test/", hash, size)
+	time.Sleep(5 * time.Second)
 }
