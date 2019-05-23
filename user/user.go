@@ -191,18 +191,9 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	}
 
 	// TODO: 并行监视transaction完成情况，通过channel控制文件上传
-	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
-		Action:   tpPayload.UserCreateFile,
-		Name:     c.Name,
-		PWD:      dst,
-		FileInfo: info,
-	}}, lib.DefaultWait)
-
-	if err != nil {
-		return nil, err
-	}
-
+	done := make(chan bool)
 	go func() {
+		<-done
 		seas, err := lib.ListSeasPeerId("", 20)
 		if err != nil || len(seas) == 0 {
 			lib.Logger.Error("failed to get seas:", err)
@@ -218,6 +209,18 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			lib.Logger.Error(err)
 		}
 	}()
+
+	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Action:   tpPayload.UserCreateFile,
+		Name:     c.Name,
+		PWD:      dst,
+		FileInfo: info,
+	}}, lib.DefaultWait)
+
+	if err != nil {
+		return nil, err
+	}
+	done <- true
 	return response, nil
 }
 
