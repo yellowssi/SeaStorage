@@ -20,9 +20,7 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"time"
 
-	"github.com/lestrrat-go/file-rotatelogs"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -60,35 +58,9 @@ func Execute() {
 }
 
 func init() {
-	logrus.SetFormatter(&logrus.TextFormatter{})
-	baseLogPath := path.Join(lib.DefaultLogPath, "SeaStorage")
-	writer, err := rotatelogs.New(
-		baseLogPath+".%Y%m%d%H%M",
-		rotatelogs.WithLinkName(baseLogPath),
-		rotatelogs.WithRotationTime(24*time.Hour))
-	if err != nil {
-		panic(err)
-	}
-	mw := io.MultiWriter(os.Stdout, writer)
-	logrus.SetOutput(mw)
 	cobra.OnInitialize(initConfig)
-
-	// Check bootstrap addresses
-	for _, addr := range bootstrapAddrs {
-		multiaddr, err := ma.NewMultiaddr(addr)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"peer": addr,
-			}).Warn("failed to init peer addr")
-		}
-		lib.BootstrapAddrs = append(lib.BootstrapAddrs, multiaddr)
-	}
-
-	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	} else {
-		logrus.SetLevel(logrus.WarnLevel)
-	}
+	cobra.OnInitialize(initLogger)
+	cobra.OnInitialize(initBootstrapNodes)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
@@ -117,6 +89,40 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+// initLogger config logger
+func initLogger() {
+	lib.Logger = logrus.New()
+	lib.Logger.SetFormatter(&logrus.TextFormatter{})
+	os.MkdirAll(lib.DefaultLogPath, 0755)
+	logFile, err := os.OpenFile(path.Join(lib.DefaultLogPath, "SeaStorage"), os.O_APPEND, 0644)
+	if err != nil {
+		logFile, err = os.OpenFile(path.Join(lib.DefaultLogPath, "SeaStorage"), os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err)
+		}
+	}
+	mw := io.MultiWriter(os.Stdout, logFile)
+	lib.Logger.SetOutput(mw)
+	if debug {
+		lib.Logger.SetLevel(logrus.DebugLevel)
+	} else {
+		lib.Logger.SetLevel(logrus.WarnLevel)
+	}
+}
+
+func initBootstrapNodes() {
+	// Check bootstrap addresses
+	for _, addr := range bootstrapAddrs {
+		multiaddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			lib.Logger.WithFields(logrus.Fields{
+				"peer": addr,
+			}).Warn("failed to init peer addr")
+		}
+		lib.BootstrapAddrs = append(lib.BootstrapAddrs, multiaddr)
 	}
 }
 

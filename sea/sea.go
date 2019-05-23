@@ -3,7 +3,6 @@ package sea
 import (
 	"context"
 	"fmt"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
+	p2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -66,39 +66,39 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 	priv, _ := ioutil.ReadFile(keyFile)
 	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.ListenAddress, lib.ListenPort))
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	ctx := context.Background()
 	host, err := libp2p.New(ctx, libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	_, err = p2p.NewSeaNode(c.ClientFramework, storagePath, size, host)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	if err = kadDHT.Bootstrap(ctx); err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	var wg sync.WaitGroup
 	for _, addr := range bootstrapAddrs {
-		peerInfo, err := peerstore.InfoFromP2pAddr(addr)
+		peerInfo, err := p2pPeerstore.InfoFromP2pAddr(addr)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
+			lib.Logger.WithFields(logrus.Fields{
 				"peer": addr,
 			}).Warn("failed to get peer info:", err)
 			continue
@@ -108,14 +108,14 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 			defer wg.Done()
 			err = host.Connect(ctx, *peerInfo)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
+				lib.Logger.WithFields(logrus.Fields{
 					"peer": peerInfo,
 				}).Warn("failed to connect peer:", err)
 			}
 		}()
 	}
 	wg.Wait()
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"listen address":    lib.ListenAddress,
 		"listen listenPort": lib.ListenPort,
 		"peer id":           host.ID().String(),
@@ -124,5 +124,5 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
-	logrus.Info("Exit")
+	lib.Logger.Info("Exit")
 }

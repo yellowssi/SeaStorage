@@ -50,17 +50,17 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload response",
 		"from": s.Conn().RemotePeer(),
 		"data": data.String(),
@@ -68,7 +68,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -78,13 +78,13 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 
 	err = p.sendDownload(s.Conn().RemotePeer(), tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Hash)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "download request",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
 		}).Warn("invalid download request or failed to send response")
 	} else {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "download request",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -152,7 +152,7 @@ func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, peerPub, hash string, 
 	req.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(peerId, downloadResponse, req)
 	if ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "download response",
 			"to":   peerId,
 			"data": req.String(),
@@ -177,17 +177,17 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload confirm",
 		"from": s.Conn().RemotePeer(),
 		"data": data.String(),
@@ -195,7 +195,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -206,7 +206,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
 	downloadInfo, ok := p.node.srcs[peerPub][data.Hash]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -216,7 +216,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 
 	if data.Id == downloadInfo.packages {
 		delete(p.node.srcs[peerPub], data.Hash)
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -226,7 +226,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 		if err != nil {
 			err = p.node.sendPackage(s.Conn().RemotePeer(), peerPub, data.Hash, data.Id)
 			if err != nil {
-				logrus.Error("failed to send package")
+				lib.Logger.Error("failed to send package")
 				return
 			}
 		}
@@ -258,17 +258,17 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload response",
 		"from": s.Conn().RemotePeer(),
 		"data": data.String(),
@@ -276,7 +276,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -286,7 +286,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 
 	downloadInfo, ok := p.downloads[data.Hash]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
@@ -299,7 +299,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		targetFile := path.Join(downloadInfo.dst, data.Hash)
 		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			logrus.Error("failed to create file:", targetFile)
+			lib.Logger.Error("failed to create file:", targetFile)
 			return
 		}
 		for i := int64(0); i < data.Id; i++ {
@@ -311,7 +311,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 						err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, i)
 					}
 				} else {
-					logrus.Error("failed to read fragment:", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10)))
+					lib.Logger.Error("failed to read fragment:", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10)))
 				}
 				return
 			}
@@ -319,7 +319,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		}
 		err = f.Truncate(downloadInfo.size)
 		if err != nil {
-			logrus.Error("failed to truncate file:", targetFile)
+			lib.Logger.Error("failed to truncate file:", targetFile)
 			f.Close()
 			os.Remove(targetFile)
 			return
@@ -329,23 +329,23 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
-			logrus.Error("failed to open file:", targetFile)
+			lib.Logger.Error("failed to open file:", targetFile)
 			return
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			logrus.Error("failed to calculate file hash:", targetFile)
+			lib.Logger.Error("failed to calculate file hash:", targetFile)
 			return
 		}
 		if hash != data.Hash {
-			logrus.Error("hash is invalid:", targetFile)
+			lib.Logger.Error("hash is invalid:", targetFile)
 			return
 		}
 		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.Id)
 		if err != nil {
 			err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.Id)
 			if err != nil {
-				logrus.Error("failed to send confirm")
+				lib.Logger.Error("failed to send confirm")
 			}
 		}
 		p.downloads[data.Hash].done <- true
@@ -360,14 +360,14 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			f, err := os.Create(filename)
 			if err != nil {
-				logrus.Error("failed to create file:", filename)
+				lib.Logger.Error("failed to create file:", filename)
 			}
 			_, err = f.Write(data.Data)
 			if err != nil {
-				logrus.Error("failed to write data to file:", filename)
+				lib.Logger.Error("failed to write data to file:", filename)
 			}
 		} else {
-			logrus.Error("file exists:", filename)
+			lib.Logger.Error("file exists:", filename)
 		}
 	}
 }

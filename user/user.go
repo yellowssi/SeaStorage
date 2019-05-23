@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"io/ioutil"
 	"os"
 	"path"
@@ -15,6 +14,7 @@ import (
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	p2pPeer "github.com/libp2p/go-libp2p-peer"
+	p2pPeerStore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -41,11 +41,11 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	var u *tpUser.User
 	userBytes, _ := c.GetData()
 	if userBytes != nil {
-		logrus.WithField("username", name).Info("user login success")
+		lib.Logger.WithField("username", name).Info("user login success")
 		u, err = tpUser.UserFromBytes(userBytes)
 		if err != nil {
 			u = nil
-			logrus.Error(err)
+			lib.Logger.Error(err)
 		}
 	}
 	priv, _ := ioutil.ReadFile(keyFile)
@@ -73,9 +73,9 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	}
 	var wg sync.WaitGroup
 	for _, addr := range bootstrapAddrs {
-		peerInfo, err := peerstore.InfoFromP2pAddr(addr)
+		peerInfo, err := p2pPeerStore.InfoFromP2pAddr(addr)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
+			lib.Logger.WithFields(logrus.Fields{
 				"peer": addr,
 			}).Warn("failed to get peer info:", err)
 			continue
@@ -85,7 +85,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 			defer wg.Done()
 			err = host.Connect(ctx, *peerInfo)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
+				lib.Logger.WithFields(logrus.Fields{
 					"peer": peerInfo,
 				}).Warn("failed to connect peer:", err)
 			}
@@ -101,7 +101,7 @@ func (c *Client) UserRegister() error {
 	if err != nil {
 		return err
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),
 		"address":    c.GetAddress(),
@@ -195,7 +195,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	go func() {
 		seas, err := lib.ListSeasPeerId("", 20)
 		if err != nil || len(seas) == 0 {
-			logrus.Error("failed to get seas:", err)
+			lib.Logger.Error("failed to get seas:", err)
 			return
 		}
 		fragmentSeas := make([][]p2pPeer.ID, 0)
@@ -205,7 +205,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		}
 		err = c.uploadFiles(info, dst, fragmentSeas)
 		if err != nil {
-			logrus.Error(err)
+			lib.Logger.Error(err)
 			return
 		}
 	}()
@@ -243,7 +243,7 @@ func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]p
 		go func(operation *tpUser.Operation) {
 			err = c.Upload(f, operation, seas[i])
 			if err != nil {
-				logrus.WithField("hash", fragment.Hash).Error(err)
+				lib.Logger.WithField("hash", fragment.Hash).Error(err)
 			}
 		}(operation)
 	}

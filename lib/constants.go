@@ -2,6 +2,7 @@ package lib
 
 import (
 	"crypto/aes"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path"
 
@@ -45,6 +46,7 @@ const (
 )
 
 var (
+	Logger                *logrus.Logger
 	DefaultKeyPath        string
 	DefaultConfigPath     string
 	DefaultStoragePath    string

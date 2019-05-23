@@ -50,17 +50,17 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload query request",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -68,7 +68,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -80,7 +80,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp")); os.IsNotExist(err) {
 		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp"), 0700)
 		if err != nil {
-			logrus.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey)))
+			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey)))
 			return
 		}
 	}
@@ -92,7 +92,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	}
 	signature, err := p.node.signProtoMessage(resp)
 	if err != nil {
-		logrus.Error("failed to sign response")
+		lib.Logger.Error("failed to sign response")
 		return
 	}
 	resp.MessageData.Sign = signature
@@ -104,13 +104,13 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 		} else {
 			queryMap[tag] = resp
 		}
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
 			"to":   s.Conn().RemotePeer().String(),
 			"data": resp.String(),
 		}).Info("upload query response sent success")
 	} else {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
 			"to":   s.Conn().RemotePeer().String(),
 			"data": resp.String(),
@@ -137,17 +137,17 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload request",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -155,7 +155,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -165,7 +165,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 
 	queryMap, ok := p.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -174,7 +174,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 	}
 	queryResponse, ok := queryMap[data.Tag]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -188,7 +188,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		targetFile := path.Join(storagePath, data.Tag)
 		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			logrus.Error("failed to create file:", targetFile)
+			lib.Logger.Error("failed to create file:", targetFile)
 			return
 		}
 		for i := int64(0); i < data.Id; i++ {
@@ -200,13 +200,13 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 						err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, "", i)
 					}
 				} else {
-					logrus.Error("failed to read fragment:", path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
+					lib.Logger.Error("failed to read fragment:", path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
 				}
 				return
 			}
 			_, err = f.WriteAt(fragment, lib.PackageSize*i)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
+				lib.Logger.WithFields(logrus.Fields{
 					"peer": s.Conn().RemotePeer().String(),
 					"tag":  data.Tag,
 				}).Error("failed to merge fragment")
@@ -215,7 +215,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		}
 		err = f.Truncate(queryResponse.Size)
 		if err != nil {
-			logrus.Error("failed to truncate file:", targetFile)
+			lib.Logger.Error("failed to truncate file:", targetFile)
 			f.Close()
 			os.Remove(targetFile)
 			return
@@ -225,12 +225,12 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
-			logrus.Error("failed to open file:", targetFile)
+			lib.Logger.Error("failed to open file:", targetFile)
 			return
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			logrus.Error("failed to calculate file hash:", targetFile)
+			lib.Logger.Error("failed to calculate file hash:", targetFile)
 			return
 		}
 		err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.Id)
@@ -245,7 +245,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 				uploadMap[data.Tag] = hash
 			}
 		} else {
-			logrus.WithFields(logrus.Fields{
+			lib.Logger.WithFields(logrus.Fields{
 				"type": "upload request",
 				"from": s.Conn().RemotePeer().String(),
 				"data": data.String(),
@@ -256,14 +256,14 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			f, err := os.Create(filename)
 			if err != nil {
-				logrus.Error("failed to create file:", filename)
+				lib.Logger.Error("failed to create file:", filename)
 			}
 			_, err = f.Write(data.Data)
 			if err != nil {
-				logrus.Error("failed to write data to file:", filename)
+				lib.Logger.Error("failed to write data to file:", filename)
 			}
 		} else {
-			logrus.Error("file exists:", filename)
+			lib.Logger.Error("file exists:", filename)
 		}
 	}
 }
@@ -282,14 +282,14 @@ func (p *SeaUploadProtocol) sendUploadResponse(peerId peer.ID, messageId, tag, h
 	resp.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(peerId, uploadResponse, resp)
 	if ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"to":   peerId,
 			"data": resp.String(),
 		}).Info("upload response sent success")
 		return nil
 	} else {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"to":   peerId,
 			"data": resp.String(),
@@ -317,17 +317,17 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "operation request",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -335,7 +335,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -345,7 +345,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 
 	hash, ok := p.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)][data.Tag]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -355,7 +355,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 
 	op, err := tpUser.OperationFromBytes(data.Operation)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -363,7 +363,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		return
 	}
 	if !op.Verify() || op.Hash != hash {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -377,7 +377,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		Signature: *op,
 	}}, lib.DefaultWait)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -388,14 +388,14 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 			Signature: *op,
 		}}, lib.DefaultWait)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
+			lib.Logger.WithFields(logrus.Fields{
 				"type": "operation request",
 				"from": s.Conn().RemotePeer().String(),
 				"data": data.String(),
 			}).Error("failed to send transaction")
 		}
 	} else {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type":     "operation request",
 			"from":     s.Conn().RemotePeer().String(),
 			"data":     data.String(),
@@ -427,17 +427,17 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload query response",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -445,7 +445,7 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -471,7 +471,7 @@ func (p *UserUploadQueryProtocol) SendUploadQuery(peerId peer.ID, path, name str
 
 	ok := p.node.sendProtoMessage(peerId, uploadQueryRequest, req)
 	if ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query request",
 			"to":   peerId,
 			"data": req.String(),
@@ -500,17 +500,17 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
 		s.Reset()
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
 	s.Close()
 
 	err = proto.Unmarshal(buf, data)
 	if err != nil {
-		logrus.Error(err)
+		lib.Logger.Error(err)
 		return
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload response",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -518,7 +518,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -532,7 +532,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 		if err != nil {
 			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.Id)
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
+				lib.Logger.WithFields(logrus.Fields{
 					"type": "upload response",
 					"from": s.Conn().RemotePeer().String(),
 					"data": data.String(),
@@ -540,7 +540,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 				return
 			}
 		}
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
 			"from": s.Conn().RemotePeer().String(),
 			"data": data.String(),
@@ -552,21 +552,21 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 			if err != nil {
 				err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 				if err != nil {
-					logrus.WithFields(logrus.Fields{
+					lib.Logger.WithFields(logrus.Fields{
 						"type": "upload response",
 						"from": s.Conn().RemotePeer().String(),
 						"data": data.String(),
 					}).Warn("failed to send operation protocol")
 				}
 			}
-			logrus.WithFields(logrus.Fields{
+			lib.Logger.WithFields(logrus.Fields{
 				"type": "upload response",
 				"from": s.Conn().RemotePeer().String(),
 				"data": data.String(),
 			}).Info("fragment storage success")
 			p.node.seas[data.Tag].Remove(s.Conn().RemotePeer())
 			if len(p.node.seas[data.Tag].ToSlice()) == 0 {
-				logrus.WithFields(logrus.Fields{
+				lib.Logger.WithFields(logrus.Fields{
 					"tag": data.Tag,
 				}).Info("fragment storage finish")
 				p.node.dones[data.Tag] <- true
@@ -574,7 +574,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 			}
 		}
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"type": "upload response",
 		"from": s.Conn().RemotePeer().String(),
 		"data": data.String(),
@@ -584,7 +584,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
 	packages, ok := p.packages[tag]
 	if !ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"tag": tag,
 		}).Warn("invalid tag")
 		return
@@ -627,7 +627,7 @@ func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, 
 	req.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(peerId, uploadRequest, req)
 	if ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
 			"to":   peerId,
 			"data": req.String(),
@@ -664,7 +664,7 @@ func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId,
 	op.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(peerId, uploadOperation, op)
 	if ok {
-		logrus.WithFields(logrus.Fields{
+		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"to":   peerId,
 			"data": op.String(),
