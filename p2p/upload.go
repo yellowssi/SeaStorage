@@ -560,7 +560,8 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 		}).Info("send upload protocol success")
 		return
 	} else if data.Id == packages {
-		if data.Hash == p.node.operations[data.Tag].Hash {
+		operation, ok := p.node.operations[data.Tag]
+		if ok && data.Hash == operation.Hash {
 			err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 			if err != nil {
 				err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
