@@ -19,7 +19,9 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"time"
 
+	"github.com/lestrrat-go/file-rotatelogs"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -57,44 +59,17 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
 	logrus.SetFormatter(&logrus.TextFormatter{})
-	logrus.SetOutput(os.Stdout)
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
-	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
-	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
-	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
-	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
-	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
-	rootCmd.PersistentFlags().StringArrayVarP(&bootstrapAddrs, "bootstrap", "b", lib.DefaultBootstrapAddrs, "the bootstrap node addresses of the p2p network")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	u, err := user.Current()
+	baseLogPath := path.Join(lib.DefaultLogPath, "SeaStorage")
+	writer, err := rotatelogs.New(
+		baseLogPath+".%Y%m%d%H%M",
+		rotatelogs.WithLinkName(baseLogPath),
+		rotatelogs.WithRotationTime(24*time.Hour))
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		panic(err)
 	}
-
-	// TODO: Init Config file
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Search config in home directory with name ".SeaStorage" (without extension).
-		viper.AddConfigPath(path.Join(u.HomeDir, ".SeaStorage"))
-		viper.SetConfigName("config")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
+	logrus.SetOutput(writer)
+	cobra.OnInitialize(initConfig)
 
 	// Check bootstrap addresses
 	for _, addr := range bootstrapAddrs {
@@ -112,6 +87,35 @@ func initConfig() {
 	} else {
 		logrus.SetLevel(logrus.WarnLevel)
 	}
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
+	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
+	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
+	rootCmd.PersistentFlags().StringVarP(&keyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
+	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
+	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
+	rootCmd.PersistentFlags().StringArrayVarP(&bootstrapAddrs, "bootstrap", "b", lib.DefaultBootstrapAddrs, "the bootstrap node addresses of the p2p network")
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	// TODO: Init Config file
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Search config in home directory with name ".SeaStorage" (without extension).
+		viper.AddConfigPath(lib.DefaultConfigPath)
+		viper.SetConfigName("config")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
 }
 
 func GetDefaultUserName() string {
@@ -124,10 +128,5 @@ func GetDefaultUserName() string {
 }
 
 func GetDefaultKeyFile() string {
-	u, err := user.Current()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	return path.Join(u.HomeDir, ".SeaStorage", "keys", u.Username+".priv")
+	return path.Join(lib.DefaultKeyPath, GetDefaultUserName()+".priv")
 }

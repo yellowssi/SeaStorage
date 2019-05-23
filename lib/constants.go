@@ -2,8 +2,19 @@ package lib
 
 import (
 	"crypto/aes"
+	"os"
+	"path"
 
 	ma "github.com/multiformats/go-multiaddr"
+)
+
+var (
+	TPURL          string
+	StoragePath    string
+	StorageSize    int64
+	ListenAddress  string
+	ListenPort     int
+	BootstrapAddrs []ma.Multiaddr
 )
 
 const (
@@ -17,7 +28,6 @@ const (
 	DefaultDataShards    int    = 5
 	DefaultParShards     int    = 3
 	DefaultTPURL         string = "http://129.204.249.51:8008"
-	DefaultStoragePath   string = "/var/lib/SeaStorage"
 	DefaultStorageSize   int64  = 1024 * 1024 * 1024
 	DefaultListenAddress string = "0.0.0.0"
 	DefaultListenPort    int    = 5001
@@ -35,14 +45,22 @@ const (
 )
 
 var (
-	TPURL          string
-	StoragePath    string
-	StorageSize    int64
-	ListenAddress  string
-	ListenPort     int
-	BootstrapAddrs []ma.Multiaddr
-	// TODO: Build Base P2P Bootstrap Network && Build docker for bootstrap
+	DefaultKeyPath        string
+	DefaultConfigPath     string
+	DefaultStoragePath    string
+	DefaultLogPath        string
 	DefaultBootstrapAddrs = []string{
 		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
 	}
 )
+
+func init() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	DefaultConfigPath = path.Join(homeDir, ".SeaStorage")
+	DefaultKeyPath = path.Join(DefaultConfigPath, "keys")
+	DefaultStoragePath = path.Join(DefaultConfigPath, "storage")
+	DefaultLogPath = path.Join(DefaultConfigPath, "log")
+}

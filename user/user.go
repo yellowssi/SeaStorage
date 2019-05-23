@@ -241,7 +241,7 @@ func (c *Client) uploadFiles(fileInfo tpStorage.FileInfo, dst string, seas [][]p
 		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
 		wg.Add(1)
 		go func(operation *tpUser.Operation) {
-			err = c.UploadFile(f, operation, seas[i])
+			err = c.Upload(f, operation, seas[i])
 			if err != nil {
 				logrus.WithField("hash", fragment.Hash).Error(err)
 			}
@@ -350,7 +350,7 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 		if i-errCount == lib.DefaultDataShards {
 			break
 		}
-		err = c.DownloadFragment(storagePath, fragment)
+		err = c.Download(storagePath, fragment)
 		if err != nil {
 			errCount++
 		}

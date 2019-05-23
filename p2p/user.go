@@ -33,7 +33,7 @@ func NewUserNode(host host.Host) *UserNode {
 	return n
 }
 
-func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []peer.ID) error {
+func (n *UserNode) Upload(src *os.File, operation *tpUser.Operation, seas []peer.ID) error {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(operation.Path + operation.Name))
 	n.operations[tag] = operation
@@ -59,7 +59,7 @@ func (n *UserNode) UploadFile(src *os.File, operation *tpUser.Operation, seas []
 	return nil
 }
 
-func (n *UserNode) DownloadFragment(dst string, fragment *storage.Fragment) error {
+func (n *UserNode) Download(dst string, fragment *storage.Fragment) error {
 	for _, s := range fragment.Seas {
 		publicKey, err := crypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s.PublicKey))
 		if err != nil {

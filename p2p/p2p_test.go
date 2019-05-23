@@ -52,7 +52,7 @@ func TestUpload(t *testing.T) {
 	stat, _ := src.Stat()
 	hash, _ := crypto.CalFileHash(src)
 	operation := cli.GenerateOperation("/", "test", hash, stat.Size())
-	err := userNode.UploadFile(src, operation, []p2pPeer.ID{seaPeer})
+	err := userNode.Upload(src, operation, []p2pPeer.ID{seaPeer})
 	if err != nil {
 		t.Error(err)
 	}
