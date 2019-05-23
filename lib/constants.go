@@ -28,7 +28,7 @@ const (
 	EncryptSuffix        string = ".enc"
 	DefaultDataShards    int    = 5
 	DefaultParShards     int    = 3
-	DefaultTPURL         string = "http://129.204.249.51:8008"
+	DefaultTPURL         string = "http://101.132.168.252:8008"
 	DefaultStorageSize   int64  = 1024 * 1024 * 1024
 	DefaultListenAddress string = "0.0.0.0"
 	DefaultListenPort    int    = 5001
@@ -53,6 +53,7 @@ var (
 	DefaultLogPath        string
 	DefaultBootstrapAddrs = []string{
 		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
+		"/ip4/101.132.168.252/tcp/5001/p2p/16Uiu2HAmHoT7LJpqYhZfLddG6Gu7WBkHh44cMiGp1FgCjPjbhEkA",
 	}
 )
 
