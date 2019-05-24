@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 
 	"github.com/gogo/protobuf/proto"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -236,9 +237,11 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 }
 
 type userDownloadInfo struct {
-	dst  string
-	size int64
-	done chan bool
+	lock        sync.RWMutex
+	downloading int
+	dst         string
+	size        int64
+	done        chan bool
 }
 
 type UserDownloadProtocol struct {
@@ -297,6 +300,16 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 	}
 
 	if len(data.Data) == 0 {
+		done := make(chan bool)
+		go func() {
+			for {
+				if downloadInfo.downloading == 0 {
+					done <- true
+					return
+				}
+			}
+		}()
+		<-done
 		// Verify fragments
 		targetFile := path.Join(downloadInfo.dst, data.Hash)
 		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE, 0600)
@@ -350,8 +363,11 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 				lib.Logger.Error("failed to send confirm")
 			}
 		}
-		p.downloads[data.Hash].done <- true
+		downloadInfo.done <- true
 	} else {
+		downloadInfo.lock.Lock()
+		downloadInfo.downloading++
+		downloadInfo.lock.Unlock()
 		if data.PackageId == 0 {
 			err = os.Mkdir(path.Join(lib.DefaultTmpPath, data.Hash), 0700)
 			if err != nil {
@@ -371,6 +387,9 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		} else {
 			lib.Logger.Error("file exists:", filename)
 		}
+		downloadInfo.lock.Lock()
+		downloadInfo.downloading--
+		downloadInfo.lock.Unlock()
 	}
 }
 
