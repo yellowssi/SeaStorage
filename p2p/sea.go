@@ -2,16 +2,13 @@ package p2p
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
-	"sync"
-
 	p2pHost "github.com/libp2p/go-libp2p-host"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"os"
+	"path/filepath"
 )
 
 type SeaNode struct {
-	lock sync.RWMutex
 	*lib.ClientFramework
 	storagePath string
 	size        int64

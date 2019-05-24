@@ -96,7 +96,6 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	resp.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
 	if ok {
-		p.node.lock.Lock()
 		queryMap, ok := p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 		if !ok {
 			p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*pb.UploadQueryRequest{data.Tag: data}
@@ -108,7 +107,6 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 			"to":   s.Conn().RemotePeer().String(),
 			"data": resp.String(),
 		}).Info("upload query response sent success")
-		p.node.lock.Unlock()
 	} else {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
@@ -239,7 +237,6 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		if err != nil {
 			err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
 		}
-		p.node.lock.Lock()
 		if err == nil {
 			uploadMap, ok := p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 			if !ok {
@@ -255,7 +252,6 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			}).Error("failed to sent response")
 		}
 		delete(p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)], data.Tag)
-		p.node.lock.Unlock()
 	} else {
 		filename := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp", data.Tag+"-"+strconv.FormatInt(data.PackageId, 10))
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
@@ -410,9 +406,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		"tag":      data.Tag,
 		"response": resp,
 	}).Info("send transaction success")
-	p.node.lock.Lock()
 	delete(p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)], data.Tag)
-	p.node.lock.Unlock()
 }
 
 /*
