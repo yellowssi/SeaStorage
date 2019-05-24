@@ -198,10 +198,10 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			lib.Logger.Error("failed to get seas:", err)
 			return
 		}
-		fragmentSeas := make([][]p2pCrypto.PubKey, 0)
+		fragmentSeas := make([][]string, 0)
 		for i := range info.Fragments {
 			// TODO: Algorithm for select sea && user selected seas
-			peers := make([]p2pCrypto.PubKey, 0)
+			peers := make([]string, 0)
 			if len(seas) <= 3 {
 				peers = append(peers, seas...)
 			} else {
@@ -232,7 +232,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 }
 
 // Upload the file into the seas
-func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pCrypto.PubKey) {
+func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]string) {
 	var wg sync.WaitGroup
 	for i, fragment := range fileInfo.Fragments {
 		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
@@ -244,7 +244,7 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2
 			continue
 		}
 		wg.Add(1)
-		go func(src *os.File, hash string, size int64, seas []p2pCrypto.PubKey) {
+		go func(src *os.File, hash string, size int64, seas []string) {
 			c.Upload(src, dst, fileInfo.Name, hash, size, seas)
 		}(f, fragment.Hash, fragment.Size, seas[i])
 	}

@@ -3,7 +3,8 @@ package lib
 import "testing"
 
 func init() {
-	TPURL = DefaultTPURL
+	TPURL = "http://127.0.0.1:8008"
+	//TPURL = DefaultTPURL
 }
 
 func TestListSeasPublicKey(t *testing.T) {

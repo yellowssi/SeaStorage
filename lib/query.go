@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"io/ioutil"
 	"net/http"
 	"strings"
 
-	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
 )
@@ -43,12 +41,12 @@ func ListSeas(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.SeaNamespace, start, limit)
 }
 
-func ListSeasPublicKey(start string, limit uint) ([]p2pCrypto.PubKey, error) {
+func ListSeasPublicKey(start string, limit uint) ([]string, error) {
 	seas, err := ListSeas(start, limit)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]p2pCrypto.PubKey, 0)
+	result := make([]string, 0)
 	for i := range seas {
 		seaBytes, err := base64.StdEncoding.DecodeString(seas[i].(map[string]interface{})["data"].(string))
 		if err != nil {
@@ -58,11 +56,7 @@ func ListSeasPublicKey(start string, limit uint) ([]p2pCrypto.PubKey, error) {
 		if err != nil {
 			continue
 		}
-		pub, err := p2pCrypto.UnmarshalSecp256k1PublicKey(crypto.HexToBytes(s.PublicKey))
-		if err != nil {
-			continue
-		}
-		result = append(result, pub)
+		result = append(result, s.PublicKey)
 	}
 	return result, nil
 }

@@ -39,7 +39,7 @@ func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
 	return n
 }
 
-func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []p2pCrypto.PubKey) {
+func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []string) {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(dst + name + hash))
 	n.uploadInfos[tag] = &userUploadInfo{
@@ -50,13 +50,16 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	}
 	uploadInfo := n.uploadInfos[tag]
 	for _, s := range seas {
-		seaId, err := peer.IDFromPublicKey(s)
-		pubKeys, err := s.Bytes()
+		seaPub, err := p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s))
+		if err != nil {
+			continue
+		}
+		seaId, err := peer.IDFromPublicKey(seaPub)
 		if err != nil {
 			continue
 		}
 		uploadInfo.lock.Lock()
-		uploadInfo.operations[seaId] = n.GenerateOperation(tpCrypto.BytesToHex(pubKeys), dst, name, hash, size)
+		uploadInfo.operations[seaId] = n.GenerateOperation(s, dst, name, hash, size)
 		uploadInfo.lock.Unlock()
 		err = n.SendUploadQuery(seaId, tag, size)
 		if err != nil {

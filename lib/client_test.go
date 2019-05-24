@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"os"
 	"testing"
 )
@@ -26,7 +27,7 @@ func TestClientFramework_Show(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(u)
+	t.Log(user.UserFromBytes(u))
 }
 
 func TestListAll(t *testing.T) {
