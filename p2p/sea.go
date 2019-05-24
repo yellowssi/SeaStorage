@@ -13,6 +13,7 @@ type SeaNode struct {
 	storagePath string
 	size        int64
 	freeSize    int64
+	uploadInfos map[string]map[string]*uploadInfo
 	*Node
 	*SeaUploadQueryProtocol
 	*SeaUploadProtocol
@@ -44,6 +45,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 		size:            size,
 		freeSize:        freeSize,
 		Node:            NewNode(host),
+		uploadInfos:     make(map[string]map[string]*uploadInfo),
 	}
 	seaNode.SeaUploadQueryProtocol = NewSeaUploadQueryProtocol(seaNode)
 	seaNode.SeaUploadProtocol = NewSeaUploadProtocol(seaNode)

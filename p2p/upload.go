@@ -2,12 +2,6 @@ package p2p
 
 import (
 	"errors"
-	"io"
-	"io/ioutil"
-	"os"
-	"path"
-	"strconv"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
 	inet "github.com/libp2p/go-libp2p-net"
@@ -19,6 +13,12 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
+	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+	"sync"
 )
 
 const (
@@ -32,6 +32,13 @@ const (
 /*
  * Sea Upload Handler
  */
+
+type uploadInfo struct {
+	lock        sync.RWMutex
+	downloading int
+	query       *pb.UploadQueryRequest
+	hash        string
+}
 
 type SeaUploadQueryProtocol struct {
 	node *SeaNode
@@ -96,11 +103,11 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	resp.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
 	if ok {
-		queryMap, ok := p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
+		queryMap, ok := p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 		if !ok {
-			p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*pb.UploadQueryRequest{data.Tag: data}
+			p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*uploadInfo{data.Tag: {query: data}}
 		} else {
-			queryMap[data.Tag] = data
+			queryMap[data.Tag] = &uploadInfo{query: data}
 		}
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
@@ -117,14 +124,12 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 }
 
 type SeaUploadProtocol struct {
-	node    *SeaNode
-	queries map[string]map[string]*pb.UploadQueryRequest
+	node *SeaNode
 }
 
 func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	p := &SeaUploadProtocol{
-		node:    node,
-		queries: make(map[string]map[string]*pb.UploadQueryRequest),
+		node: node,
 	}
 	node.SetStreamHandler(uploadRequest, p.onUploadRequest)
 	return p
@@ -161,7 +166,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		return
 	}
 
-	queryMap, ok := p.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
+	uploadInfoMap, ok := p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
@@ -170,7 +175,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		}).Warn("invalid protocol")
 		return
 	}
-	queryResponse, ok := queryMap[data.Tag]
+	uploadInfo, ok := uploadInfoMap[data.Tag]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
@@ -181,6 +186,16 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 	}
 
 	if len(data.Data) == 0 {
+		done := make(chan bool)
+		go func() {
+			for {
+				if uploadInfo.downloading == 0 {
+					done <- true
+					return
+				}
+			}
+		}()
+		<-done
 		// Verify fragments
 		storagePath := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey))
 		targetFile := path.Join(storagePath, data.Tag)
@@ -214,7 +229,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		for i := int64(0); i < data.PackageId; i++ {
 			os.Remove(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
 		}
-		err = f.Truncate(queryResponse.Size)
+		err = f.Truncate(uploadInfo.query.Size)
 		f.Close()
 		if err != nil {
 			lib.Logger.Error("failed to truncate file:", targetFile)
@@ -238,12 +253,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
 		}
 		if err == nil {
-			uploadMap, ok := p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
-			if !ok {
-				p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]string{data.Tag: hash}
-			} else {
-				uploadMap[data.Tag] = hash
-			}
+			p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)][data.Tag].hash = hash
 		} else {
 			lib.Logger.WithFields(logrus.Fields{
 				"type": "upload request",
@@ -251,8 +261,10 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 				"tag":  data.Tag,
 			}).Error("failed to sent response")
 		}
-		delete(p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)], data.Tag)
 	} else {
+		uploadInfo.lock.Lock()
+		uploadInfo.downloading++
+		uploadInfo.lock.Unlock()
 		filename := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp", data.Tag+"-"+strconv.FormatInt(data.PackageId, 10))
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
@@ -263,6 +275,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		if err != nil {
 			lib.Logger.Error("failed to write data to file:", filename)
 		}
+		uploadInfo.lock.Lock()
+		uploadInfo.downloading--
+		uploadInfo.lock.Unlock()
 	}
 }
 
@@ -297,14 +312,12 @@ func (p *SeaUploadProtocol) sendUploadResponse(peerId peer.ID, messageId, tag, h
 }
 
 type SeaOperationProtocol struct {
-	node    *SeaNode
-	uploads map[string]map[string]string
+	node *SeaNode
 }
 
 func NewSeaOperationProtocol(node *SeaNode) *SeaOperationProtocol {
 	p := &SeaOperationProtocol{
-		node:    node,
-		uploads: make(map[string]map[string]string),
+		node: node,
 	}
 	node.SetStreamHandler(uploadOperation, p.onOperationRequest)
 	return p
@@ -341,7 +354,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		return
 	}
 
-	hash, ok := p.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)][data.Tag]
+	uploadInfo, ok := p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)][data.Tag]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
@@ -360,7 +373,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		}).Warn("failed to unmarshal:", err)
 		return
 	}
-	if !op.Verify() || op.Hash != hash {
+	if !op.Verify() || op.Hash != uploadInfo.hash {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
@@ -406,7 +419,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		"tag":      data.Tag,
 		"response": resp,
 	}).Info("send transaction success")
-	delete(p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)], data.Tag)
+	delete(p.node.uploadInfos[tpCrypto.BytesToHex(data.MessageData.NodePubKey)], data.Tag)
 }
 
 /*

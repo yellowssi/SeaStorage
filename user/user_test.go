@@ -20,7 +20,8 @@ func init() {
 	lib.GenerateKey("test", "test")
 	//lib.TPURL = lib.DefaultTPURL
 	lib.TPURL = "http://127.0.0.1:8008"
-	lib.ListenAddress = lib.DefaultListenAddress
+	//lib.ListenAddress = lib.DefaultListenAddress
+	lib.ListenAddress = "192.168.31.200"
 	lib.ListenPort = lib.DefaultListenPort
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
