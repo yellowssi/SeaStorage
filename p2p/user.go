@@ -2,9 +2,6 @@ package p2p
 
 import (
 	"errors"
-	"math"
-	"os"
-
 	"github.com/deckarep/golang-set"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
@@ -14,6 +11,8 @@ import (
 	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"math"
+	"os"
 )
 
 type UserNode struct {
@@ -35,7 +34,7 @@ func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
 	return n
 }
 
-func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []p2pCrypto.PubKey) error {
+func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []p2pCrypto.PubKey) {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(dst + name + hash))
 	n.operations[tag] = make(map[peer.ID]*tpUser.Operation)
@@ -73,7 +72,6 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	delete(n.packages, tag)
 	delete(n.dones, tag)
 	delete(n.operations, tag)
-	return nil
 }
 
 func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {

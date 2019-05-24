@@ -64,10 +64,7 @@ func TestUpload(t *testing.T) {
 	stat, _ := src.Stat()
 	size = stat.Size()
 	hash, _ = crypto.CalFileHash(src)
-	err := userNode.Upload(src, "/", "test", hash, size, []p2pCrypto.PubKey{seaPub})
-	if err != nil {
-		t.Error(err)
-	}
+	userNode.Upload(src, "/", "test", hash, size, []p2pCrypto.PubKey{seaPub})
 	time.Sleep(5 * time.Second)
 }
 
