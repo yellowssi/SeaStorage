@@ -80,15 +80,15 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 			continue
 		}
 		wg.Add(1)
-		go func() {
+		go func(info p2pPeerStore.PeerInfo) {
 			defer wg.Done()
-			err = host.Connect(ctx, *peerInfo)
+			err = host.Connect(ctx, info)
 			if err != nil {
 				lib.Logger.WithFields(logrus.Fields{
-					"peer": peerInfo,
+					"peer": info,
 				}).Warn("failed to connect peer:", err)
 			}
-		}()
+		}(*peerInfo)
 	}
 	wg.Wait()
 	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
@@ -244,9 +244,9 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2
 			continue
 		}
 		wg.Add(1)
-		go func() {
-			c.Upload(f, dst, fileInfo.Name, fragment.Hash, fragment.Size, seas[i])
-		}()
+		go func(src *os.File, hash string, size int64, seas []p2pCrypto.PubKey) {
+			c.Upload(src, dst, fileInfo.Name, hash, size, seas)
+		}(f, fragment.Hash, fragment.Size, seas[i])
 	}
 	wg.Wait()
 }

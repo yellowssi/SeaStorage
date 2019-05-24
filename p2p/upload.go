@@ -174,7 +174,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("invalid protocol")
+		}).Warn("invalid upload request")
 		return
 	}
 	uploadInfo, ok := uploadInfoMap[data.Tag]
@@ -183,7 +183,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("invalid protocol")
+		}).Warn("invalid upload request")
 		return
 	}
 
@@ -562,10 +562,11 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 				err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
 				if err != nil {
 					lib.Logger.WithFields(logrus.Fields{
-						"type": "upload response",
-						"from": s.Conn().RemotePeer().String(),
-						"tag":  data.Tag,
-					}).Warn("failed to send upload protocol")
+						"type":      "upload request",
+						"to":        s.Conn().RemotePeer().String(),
+						"tag":       data.Tag,
+						"packageId": data.PackageId,
+					}).Warn("failed to send upload request")
 					return
 				}
 			}
@@ -574,18 +575,20 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 				err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, uploadInfo.packages)
 				if err != nil {
 					lib.Logger.WithFields(logrus.Fields{
-						"type": "upload response",
-						"from": s.Conn().RemotePeer().String(),
-						"tag":  data.Tag,
-					}).Warn("failed to send upload protocol")
+						"type":      "upload request",
+						"to":        s.Conn().RemotePeer().String(),
+						"tag":       data.Tag,
+						"packageId": uploadInfo.packages,
+					}).Warn("failed to send upload request")
 				}
 				return
 			}
 			lib.Logger.WithFields(logrus.Fields{
-				"type": "upload response",
-				"from": s.Conn().RemotePeer().String(),
-				"tag":  data.Tag,
-			}).Info("send upload protocol success")
+				"type":      "upload response",
+				"from":      s.Conn().RemotePeer().String(),
+				"tag":       data.Tag,
+				"packageId": data.PackageId,
+			}).Info("send upload request success")
 			return
 		} else if data.PackageId == uploadInfo.packages {
 			operation, ok := uploadInfo.operations[s.Conn().RemotePeer()]
@@ -598,7 +601,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 							"type": "upload response",
 							"from": s.Conn().RemotePeer().String(),
 							"tag":  data.Tag,
-						}).Warn("failed to send operation protocol")
+						}).Warn("failed to send operation request")
 					}
 				}
 				delete(uploadInfo.operations, s.Conn().RemotePeer())
@@ -671,7 +674,7 @@ func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, 
 		}).Info("upload request sent")
 		return nil
 	}
-	return errors.New("failed to send upload protocol")
+	return errors.New("failed to send upload request")
 }
 
 type UserOperationProtocol struct {
