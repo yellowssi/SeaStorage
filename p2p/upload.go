@@ -368,6 +368,17 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		return
 	}
 
+	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
+	err = os.Rename(path.Join(p.node.storagePath, peerPub, data.Tag), path.Join(p.node.storagePath, peerPub, op.Hash))
+	if err != nil {
+		lib.Logger.WithFields(logrus.Fields{
+			"type": "operation request",
+			"from": s.Conn().RemotePeer().String(),
+			"tag":  data.Tag,
+		}).Warn("failed to rename file:", err)
+		return
+	}
+
 	resp, err := p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action:    tpPayload.SeaStoreFile,
 		Name:      p.node.Name,
@@ -394,16 +405,6 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 		"tag":      data.Tag,
 		"response": resp,
 	}).Info("send transaction success")
-	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
-	err = os.Rename(path.Join(p.node.storagePath, peerPub, data.Tag), path.Join(p.node.storagePath, peerPub, op.Hash))
-	if err != nil {
-		lib.Logger.WithFields(logrus.Fields{
-			"type":     "operation request",
-			"from":     s.Conn().RemotePeer().String(),
-			"tag":      data.Tag,
-			"response": resp,
-		}).Warn("failed to rename file:", err)
-	}
 }
 
 /*

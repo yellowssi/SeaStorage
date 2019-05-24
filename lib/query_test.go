@@ -6,10 +6,10 @@ func init() {
 	TPURL = DefaultTPURL
 }
 
-func TestListSeasPeerId(t *testing.T) {
-	seas, err := ListSeasPeerId("", 0)
+func TestListSeasPublicKey(t *testing.T) {
+	seas, err := ListSeasPublicKey("", 0)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(seas[0])
+	t.Log(seas)
 }
