@@ -35,16 +35,16 @@ func NewUserNode(host host.Host) *UserNode {
 
 func (n *UserNode) Upload(src *os.File, operation *tpUser.Operation, seas []peer.ID) error {
 	done := make(chan bool)
-	tag := tpCrypto.SHA512HexFromBytes([]byte(operation.Path + operation.Name))
+	tag := tpCrypto.SHA512HexFromBytes([]byte(operation.Path + operation.Name + operation.Hash))
 	n.operations[tag] = operation
 	n.srcs[tag] = src
 	n.packages[tag] = int64(math.Ceil(float64(operation.Size) / float64(lib.PackageSize)))
 	n.dones[tag] = done
 	n.seas[tag] = mapset.NewSet()
 	for _, s := range seas {
-		err := n.SendUploadQuery(s, operation.Path, operation.Name, operation.Size)
+		err := n.SendUploadQuery(s, tag, operation.Size)
 		if err != nil {
-			err = n.SendUploadQuery(s, operation.Path, operation.Name, operation.Size)
+			err = n.SendUploadQuery(s, tag, operation.Size)
 			if err != nil {
 				continue
 			}

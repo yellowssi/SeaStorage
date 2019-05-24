@@ -16,15 +16,13 @@ message MessageData {
 
 message UploadQueryRequest {
     MessageData messageData = 1;
-    string path = 2; // file storage path
-    string name = 3; // filename
-    int64 size = 4; // the size of file
+    string tag = 2; // the tag of file
+    int64 size = 3; // the size of file
 }
 
 message UploadQueryResponse {
     MessageData messageData = 1;
-    string tag = 2; // hash(path + name)
-    int64 size = 3; // the size of file
+    string tag = 2; // the tag of request
 }
 
 message UploadRequest {

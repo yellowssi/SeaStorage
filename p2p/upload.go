@@ -76,7 +76,6 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 		return
 	}
 
-	tag := tpCrypto.SHA512HexFromBytes([]byte(data.Path + data.Name))
 	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp")); os.IsNotExist(err) {
 		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp"), 0700)
 		if err != nil {
@@ -87,8 +86,7 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 
 	resp := &pb.UploadQueryResponse{
 		MessageData: p.node.NewMessageData(data.MessageData.Id, false),
-		Tag:         tag,
-		Size:        data.Size,
+		Tag:         data.Tag,
 	}
 	signature, err := p.node.signProtoMessage(resp)
 	if err != nil {
@@ -100,9 +98,9 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 	if ok {
 		queryMap, ok := p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
 		if !ok {
-			p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*pb.UploadQueryResponse{tag: resp}
+			p.node.queries[tpCrypto.BytesToHex(data.MessageData.NodePubKey)] = map[string]*pb.UploadQueryRequest{data.Tag: data}
 		} else {
-			queryMap[tag] = resp
+			queryMap[data.Tag] = data
 		}
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
@@ -120,13 +118,13 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
 
 type SeaUploadProtocol struct {
 	node    *SeaNode
-	queries map[string]map[string]*pb.UploadQueryResponse
+	queries map[string]map[string]*pb.UploadQueryRequest
 }
 
 func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	p := &SeaUploadProtocol{
 		node:    node,
-		queries: make(map[string]map[string]*pb.UploadQueryResponse),
+		queries: make(map[string]map[string]*pb.UploadQueryRequest),
 	}
 	node.SetStreamHandler(uploadRequest, p.onUploadRequest)
 	return p
@@ -465,11 +463,10 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 	p.node.sendUpload(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 }
 
-func (p *UserUploadQueryProtocol) SendUploadQuery(peerId peer.ID, path, name string, size int64) error {
+func (p *UserUploadQueryProtocol) SendUploadQuery(peerId peer.ID, tag string, size int64) error {
 	req := &pb.UploadQueryRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
-		Path:        path,
-		Name:        name,
+		Tag:         tag,
 		Size:        size,
 	}
 	signature, err := p.node.signProtoMessage(req)
