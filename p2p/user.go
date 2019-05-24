@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"errors"
-	"github.com/deckarep/golang-set"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	host "github.com/libp2p/go-libp2p-host"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -16,7 +15,8 @@ import (
 )
 
 type UserNode struct {
-	seas map[string]mapset.Set
+	uploadInfos   map[string]*userUploadInfo
+	downloadInfos map[string]*userDownloadInfo
 	*lib.ClientFramework
 	*Node
 	*UserUploadQueryProtocol
@@ -26,7 +26,12 @@ type UserNode struct {
 }
 
 func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
-	n := &UserNode{Node: NewNode(host), ClientFramework: cli, seas: make(map[string]mapset.Set)}
+	n := &UserNode{
+		Node:            NewNode(host),
+		ClientFramework: cli,
+		uploadInfos:     make(map[string]*userUploadInfo),
+		downloadInfos:   make(map[string]*userDownloadInfo),
+	}
 	n.UserUploadQueryProtocol = NewUserUploadQueryProtocol(n)
 	n.UserUploadProtocol = NewUserUploadProtocol(n)
 	n.UserOperationProtocol = NewUserOperationProtocol(n)
@@ -37,30 +42,30 @@ func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
 func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []p2pCrypto.PubKey) {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(dst + name + hash))
-	n.operations[tag] = make(map[peer.ID]*tpUser.Operation)
-	n.srcs[tag] = src
-	n.packages[tag] = int64(math.Ceil(float64(size) / float64(lib.PackageSize)))
-	n.dones[tag] = done
-	n.seas[tag] = mapset.NewSet()
+	n.uploadInfos[tag] = &userUploadInfo{
+		src:        src,
+		packages:   int64(math.Ceil(float64(size) / float64(lib.PackageSize))),
+		operations: make(map[peer.ID]*tpUser.Operation),
+		done:       done,
+	}
 	for _, s := range seas {
 		seaId, err := peer.IDFromPublicKey(s)
 		pubKeys, err := s.Bytes()
 		if err != nil {
 			continue
 		}
-		n.operations[tag][seaId] = n.GenerateOperation(tpCrypto.BytesToHex(pubKeys), dst, name, hash, size)
-		n.seas[tag].Add(seaId)
+		n.uploadInfos[tag].operations[seaId] = n.GenerateOperation(tpCrypto.BytesToHex(pubKeys), dst, name, hash, size)
 		err = n.SendUploadQuery(seaId, tag, size)
 		if err != nil {
 			err = n.SendUploadQuery(seaId, tag, size)
 			if err != nil {
-				n.seas[tag].Remove(seaId)
+				delete(n.uploadInfos[tag].operations, seaId)
 				continue
 			}
 		}
 	}
 	go func() {
-		if len(n.seas[tag].ToSlice()) == 0 {
+		if len(n.uploadInfos[tag].operations) == 0 {
 			done <- true
 		}
 	}()
@@ -68,10 +73,7 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	lib.Logger.WithFields(logrus.Fields{
 		"tag": tag,
 	}).Info("upload finish")
-	delete(n.srcs, tag)
-	delete(n.packages, tag)
-	delete(n.dones, tag)
-	delete(n.operations, tag)
+	delete(n.uploadInfos, tag)
 }
 
 func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {

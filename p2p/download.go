@@ -34,13 +34,11 @@ type seaDownloadInfo struct {
 
 type SeaDownloadProtocol struct {
 	node *SeaNode
-	srcs map[string]map[string]*seaDownloadInfo
 }
 
 func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	p := &SeaDownloadProtocol{
 		node: node,
-		srcs: make(map[string]map[string]*seaDownloadInfo),
 	}
 	node.SetStreamHandler(downloadRequest, p.onDownloadRequest)
 	return p
@@ -104,14 +102,14 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 		return err
 	}
 	packages := int64(math.Ceil(float64(stat.Size()) / float64(lib.PackageSize)))
-	peerSrcs, ok := p.srcs[peerPub]
+	peerSrcs, ok := p.node.downloadInfos[peerPub]
 	if ok {
 		peerSrcs[hash] = &seaDownloadInfo{
 			src:      src,
 			packages: packages,
 		}
 	} else {
-		p.srcs[peerPub] = map[string]*seaDownloadInfo{hash: {
+		p.node.downloadInfos[peerPub] = map[string]*seaDownloadInfo{hash: {
 			src:      src,
 			packages: packages,
 		}}
@@ -127,8 +125,8 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 
 func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
-	uploadInfo := p.srcs[peerPub][hash]
-	if id == p.srcs[peerPub][hash].packages {
+	uploadInfo := p.node.downloadInfos[peerPub][hash]
+	if id == uploadInfo.packages {
 		req = &pb.DownloadResponse{
 			MessageData: p.node.NewMessageData(messageId, true),
 			PackageId:   id,
@@ -207,7 +205,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	}
 
 	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
-	downloadInfo, ok := p.node.srcs[peerPub][data.Hash]
+	downloadInfo, ok := p.node.downloadInfos[peerPub][data.Hash]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
@@ -218,7 +216,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	}
 
 	if data.PackageId == downloadInfo.packages {
-		delete(p.node.srcs[peerPub], data.Hash)
+		delete(p.node.downloadInfos[peerPub], data.Hash)
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),
@@ -245,14 +243,12 @@ type userDownloadInfo struct {
 }
 
 type UserDownloadProtocol struct {
-	node      *UserNode
-	downloads map[string]*userDownloadInfo
+	node *UserNode
 }
 
 func NewUserDownloadProtocol(node *UserNode) *UserDownloadProtocol {
 	d := &UserDownloadProtocol{
-		node:      node,
-		downloads: make(map[string]*userDownloadInfo),
+		node: node,
 	}
 	node.SetStreamHandler(downloadResponse, d.onDownloadResponse)
 	return d
@@ -289,7 +285,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		return
 	}
 
-	downloadInfo, ok := p.downloads[data.Hash]
+	downloadInfo, ok := p.node.downloadInfos[data.Hash]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
@@ -340,7 +336,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 			return
 		}
 		f.Close()
-		// Calculate the hash of file
+		// Calculate the pubHash of file
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
@@ -349,11 +345,11 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			lib.Logger.Error("failed to calculate file hash:", targetFile)
+			lib.Logger.Error("failed to calculate file pubHash:", targetFile)
 			return
 		}
 		if hash != data.Hash {
-			lib.Logger.Error("hash is invalid:", targetFile)
+			lib.Logger.Error("pubHash is invalid:", targetFile)
 			return
 		}
 		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
@@ -395,7 +391,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 
 func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash string, size int64) error {
 	done := make(chan bool)
-	p.downloads[hash] = &userDownloadInfo{
+	p.node.downloadInfos[hash] = &userDownloadInfo{
 		dst:  dst,
 		size: size,
 		done: done,
@@ -417,7 +413,7 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash st
 		}
 	}
 	<-done
-	delete(p.downloads, hash)
+	delete(p.node.downloadInfos, hash)
 	return nil
 }
 

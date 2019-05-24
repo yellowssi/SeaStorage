@@ -10,10 +10,11 @@ import (
 
 type SeaNode struct {
 	*lib.ClientFramework
-	storagePath string
-	size        int64
-	freeSize    int64
-	uploadInfos map[string]map[string]*uploadInfo
+	storagePath   string
+	size          int64
+	freeSize      int64
+	uploadInfos   map[string]map[string]*seaUploadInfo
+	downloadInfos map[string]map[string]*seaDownloadInfo
 	*Node
 	*SeaUploadQueryProtocol
 	*SeaUploadProtocol
@@ -35,7 +36,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 			return nil, err
 		}
 		if totalSize > size {
-			return nil, errors.New("the storage size is not enough")
+			return nil, errors.New("the storage pubSize is not enough")
 		}
 		freeSize = size - totalSize
 	}
@@ -45,7 +46,8 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 		size:            size,
 		freeSize:        freeSize,
 		Node:            NewNode(host),
-		uploadInfos:     make(map[string]map[string]*uploadInfo),
+		uploadInfos:     make(map[string]map[string]*seaUploadInfo),
+		downloadInfos:   make(map[string]map[string]*seaDownloadInfo),
 	}
 	seaNode.SeaUploadQueryProtocol = NewSeaUploadQueryProtocol(seaNode)
 	seaNode.SeaUploadProtocol = NewSeaUploadProtocol(seaNode)

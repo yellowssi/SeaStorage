@@ -24,8 +24,8 @@ var userNode *UserNode
 var seaPeer p2pPeer.ID
 var seaPub p2pCrypto.PubKey
 var userPeer p2pPeer.ID
-var hash string
-var size int64
+var pubHash, priHash string
+var pubSize, priSize int64
 
 func init() {
 	lib.Logger = logrus.New()
@@ -60,15 +60,25 @@ func init() {
 }
 
 func TestUpload(t *testing.T) {
-	src, _ := os.Open("./test/user.pub")
-	stat, _ := src.Stat()
-	size = stat.Size()
-	hash, _ = crypto.CalFileHash(src)
-	userNode.Upload(src, "/", "test", hash, size, []p2pCrypto.PubKey{seaPub})
+	go func() {
+		src, _ := os.Open("./test/user.pub")
+		stat, _ := src.Stat()
+		pubSize = stat.Size()
+		pubHash, _ = crypto.CalFileHash(src)
+		userNode.Upload(src, "/", "test", pubHash, pubSize, []p2pCrypto.PubKey{seaPub})
+	}()
+	go func() {
+		src, _ := os.Open("./test/user.priv")
+		stat, _ := src.Stat()
+		priSize = stat.Size()
+		priHash, _ = crypto.CalFileHash(src)
+		userNode.Upload(src, "/", "test", priHash, priSize, []p2pCrypto.PubKey{seaPub})
+	}()
 	time.Sleep(5 * time.Second)
 }
 
 func TestDownload(t *testing.T) {
-	userNode.SendDownloadProtocol(seaPeer, "./test/", hash, size)
+	go userNode.SendDownloadProtocol(seaPeer, "./test/", pubHash, pubSize)
+	go userNode.SendDownloadProtocol(seaPeer, "./test/", priHash, priSize)
 	time.Sleep(5 * time.Second)
 }

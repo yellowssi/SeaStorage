@@ -251,13 +251,9 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
-		stat, subErr := f.Stat()
-		if subErr != nil {
-			continue
-		}
 		wg.Add(1)
 		go func() {
-			c.Upload(f, dst, fileInfo.Name, fragment.Hash, stat.Size(), seas[i])
+			c.Upload(f, dst, fileInfo.Name, fragment.Hash, fragment.Size, seas[i])
 		}()
 	}
 	wg.Wait()
