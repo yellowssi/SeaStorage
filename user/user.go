@@ -214,10 +214,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 			}
 			fragmentSeas = append(fragmentSeas, peers)
 		}
-		err = c.uploadFile(info, dst, fragmentSeas)
-		if err != nil {
-			lib.Logger.Error(err)
-		}
+		c.uploadFile(info, dst, fragmentSeas)
 	}()
 
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
@@ -235,12 +232,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 }
 
 // Upload the file into the seas
-func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pCrypto.PubKey) error {
-	if len(seas) != len(fileInfo.Fragments) {
-		return errors.New("the storage destination is not enough")
-	}
-
-	var err error
+func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pCrypto.PubKey) {
 	var wg sync.WaitGroup
 	for i, fragment := range fileInfo.Fragments {
 		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
@@ -257,7 +249,6 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2
 		}()
 	}
 	wg.Wait()
-	return err
 }
 
 // List directory infos in the path

@@ -64,11 +64,12 @@ func TestClient_CreateFile(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(response)
+	time.Sleep(5 * time.Second)
 }
 
 func TestClient_DownloadFiles(t *testing.T) {
-	time.Sleep(5 * time.Second)
 	cli.DownloadFiles("/home/SeaStorage/hostname", "./test")
+	time.Sleep(5 * time.Second)
 }
 
 func TestClient_DeleteFile(t *testing.T) {

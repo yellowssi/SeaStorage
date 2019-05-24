@@ -48,24 +48,29 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 		operations: make(map[peer.ID]*tpUser.Operation),
 		done:       done,
 	}
+	uploadInfo := n.uploadInfos[tag]
 	for _, s := range seas {
 		seaId, err := peer.IDFromPublicKey(s)
 		pubKeys, err := s.Bytes()
 		if err != nil {
 			continue
 		}
-		n.uploadInfos[tag].operations[seaId] = n.GenerateOperation(tpCrypto.BytesToHex(pubKeys), dst, name, hash, size)
+		uploadInfo.lock.Lock()
+		uploadInfo.operations[seaId] = n.GenerateOperation(tpCrypto.BytesToHex(pubKeys), dst, name, hash, size)
+		uploadInfo.lock.Unlock()
 		err = n.SendUploadQuery(seaId, tag, size)
 		if err != nil {
 			err = n.SendUploadQuery(seaId, tag, size)
 			if err != nil {
-				delete(n.uploadInfos[tag].operations, seaId)
+				uploadInfo.lock.Lock()
+				delete(uploadInfo.operations, seaId)
+				uploadInfo.lock.Unlock()
 				continue
 			}
 		}
 	}
 	go func() {
-		if len(n.uploadInfos[tag].operations) == 0 {
+		if len(uploadInfo.operations) == 0 {
 			done <- true
 		}
 	}()

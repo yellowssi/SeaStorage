@@ -102,14 +102,14 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 		return err
 	}
 	packages := int64(math.Ceil(float64(stat.Size()) / float64(lib.PackageSize)))
-	peerSrcs, ok := p.node.downloadInfos[peerPub]
+	peerSrcs, ok := p.node.downloadInfos[peerId]
 	if ok {
 		peerSrcs[hash] = &seaDownloadInfo{
 			src:      src,
 			packages: packages,
 		}
 	} else {
-		p.node.downloadInfos[peerPub] = map[string]*seaDownloadInfo{hash: {
+		p.node.downloadInfos[peerId] = map[string]*seaDownloadInfo{hash: {
 			src:      src,
 			packages: packages,
 		}}
@@ -125,7 +125,7 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 
 func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
-	uploadInfo := p.node.downloadInfos[peerPub][hash]
+	uploadInfo := p.node.downloadInfos[peerId][hash]
 	if id == uploadInfo.packages {
 		req = &pb.DownloadResponse{
 			MessageData: p.node.NewMessageData(messageId, true),
@@ -204,8 +204,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 		return
 	}
 
-	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
-	downloadInfo, ok := p.node.downloadInfos[peerPub][data.Hash]
+	downloadInfo, ok := p.node.downloadInfos[s.Conn().RemotePeer()][data.Hash]
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
@@ -216,13 +215,14 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	}
 
 	if data.PackageId == downloadInfo.packages {
-		delete(p.node.downloadInfos[peerPub], data.Hash)
+		delete(p.node.downloadInfos[s.Conn().RemotePeer()], data.Hash)
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),
 			"data": data.String(),
 		}).Info("download success")
 	} else {
+		peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
 		err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.PackageId)
 		if err != nil {
 			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.PackageId)
