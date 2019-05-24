@@ -18,10 +18,11 @@ import (
 	"time"
 )
 
-var cli *lib.ClientFramework
+var userCli, seaCli *lib.ClientFramework
 var seaNode *SeaNode
 var userNode *UserNode
 var seaPeer p2pPeer.ID
+var seaPub p2pCrypto.PubKey
 var userPeer p2pPeer.ID
 var hash string
 var size int64
@@ -31,17 +32,19 @@ func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{})
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
-	lib.StoragePath = lib.DefaultStoragePath
 	lib.GenerateKey("sea", "test")
 	lib.GenerateKey("user", "test")
-	cli, _ = lib.NewClientFramework("test", lib.ClientCategorySea, "./test/sea.priv")
+	seaCli, _ = lib.NewClientFramework("test", lib.ClientCategorySea, "./test/sea.priv")
 	seaAddr, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6667")
 	seaPrivBytes, _ := ioutil.ReadFile("./test/sea.priv")
 	seaPriv, _ := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(seaPrivBytes)))
+	seaPubBytes, _ := ioutil.ReadFile("./test/sea.pub")
+	seaPub, _ = p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(string(seaPubBytes)))
 	seaCtx := context.Background()
 	seaHost, _ := libp2p.New(seaCtx, libp2p.ListenAddrs(seaAddr), libp2p.Identity(seaPriv))
 	seaPeer = seaHost.ID()
-	seaNode, _ = NewSeaNode(cli, lib.DefaultStoragePath, lib.DefaultStorageSize, seaHost)
+	seaNode, _ = NewSeaNode(seaCli, "./test", lib.DefaultStorageSize, seaHost)
+	userCli, _ = lib.NewClientFramework("test", lib.ClientCategoryUser, "./test/user.priv")
 	userAddr, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6666")
 	userPrivBytes, _ := ioutil.ReadFile("./test/user.priv")
 	userPriv, _ := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(userPrivBytes)))
@@ -53,7 +56,7 @@ func init() {
 	seaInfo, _ := peerstore.InfoFromP2pAddr(sma)
 	_ = userHost.Connect(userCtx, *seaInfo)
 	userPeer = userHost.ID()
-	userNode = NewUserNode(userHost)
+	userNode = NewUserNode(userHost, userCli)
 }
 
 func TestUpload(t *testing.T) {
@@ -61,8 +64,7 @@ func TestUpload(t *testing.T) {
 	stat, _ := src.Stat()
 	size = stat.Size()
 	hash, _ = crypto.CalFileHash(src)
-	operation := cli.GenerateOperation("/", "test", hash, size)
-	err := userNode.Upload(src, operation, []p2pPeer.ID{seaPeer})
+	err := userNode.Upload(src, "/", "test", hash, size, []p2pCrypto.PubKey{seaPub})
 	if err != nil {
 		t.Error(err)
 	}

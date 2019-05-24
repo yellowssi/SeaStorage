@@ -93,7 +93,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 }
 
 func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, hash string) error {
-	filename := path.Join(lib.StoragePath, peerPub, hash)
+	filename := path.Join(p.node.storagePath, peerPub, hash)
 	src, err := os.Open(filename)
 	if err != nil {
 		return err

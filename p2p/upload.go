@@ -369,20 +369,15 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 	}
 
 	resp, err := p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
-		Action:    tpPayload.UserCreateDirectory,
+		Action:    tpPayload.SeaStoreFile,
 		Name:      p.node.Name,
-		Signature: *op,
+		Operation: *op,
 	}}, lib.DefaultWait)
 	if err != nil {
-		lib.Logger.WithFields(logrus.Fields{
-			"type": "operation request",
-			"from": s.Conn().RemotePeer().String(),
-			"tag":  data.Tag,
-		}).Error("failed to send transaction:", err)
 		resp, err = p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
-			Action:    tpPayload.UserCreateDirectory,
+			Action:    tpPayload.SeaStoreFile,
 			Name:      p.node.Name,
-			Signature: *op,
+			Operation: *op,
 		}}, lib.DefaultWait)
 		if err != nil {
 			lib.Logger.WithFields(logrus.Fields{
@@ -390,8 +385,8 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
 				"from": s.Conn().RemotePeer().String(),
 				"tag":  data.Tag,
 			}).Error("failed to send transaction:", err)
+			return
 		}
-		//return
 	}
 	lib.Logger.WithFields(logrus.Fields{
 		"type":     "operation request",
@@ -565,35 +560,28 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 		}).Info("send upload protocol success")
 		return
 	} else if data.PackageId == packages {
-		operation, ok := p.node.operations[data.Tag]
-		logrus.WithFields(logrus.Fields{"tag": data.Tag, "operation": operation}).Debug("check")
-		if ok && data.Hash == operation.Hash {
-			err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
-			if err != nil {
+		operationMap, ok := p.node.operations[data.Tag]
+		if ok {
+			operation, ok := operationMap[s.Conn().RemotePeer()]
+			if ok && data.Hash == operation.Hash {
 				err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 				if err != nil {
-					lib.Logger.WithFields(logrus.Fields{
-						"type": "upload response",
-						"from": s.Conn().RemotePeer().String(),
-						"tag":  data.Tag,
-					}).Warn("failed to send operation protocol")
+					err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
+					if err != nil {
+						lib.Logger.WithFields(logrus.Fields{
+							"type": "upload response",
+							"from": s.Conn().RemotePeer().String(),
+							"tag":  data.Tag,
+						}).Warn("failed to send operation protocol")
+					}
 				}
+				seas := p.node.seas[data.Tag]
+				seas.Remove(s.Conn().RemotePeer())
+				if len(seas.ToSlice()) == 0 {
+					p.node.dones[data.Tag] <- true
+				}
+				return
 			}
-			lib.Logger.WithFields(logrus.Fields{
-				"type": "upload response",
-				"from": s.Conn().RemotePeer().String(),
-				"tag":  data.Tag,
-			}).Info("fragment storage success")
-			p.node.seas[data.Tag].Remove(s.Conn().RemotePeer())
-			if len(p.node.seas[data.Tag].ToSlice()) == 0 {
-				lib.Logger.WithFields(logrus.Fields{
-					"type": "upload response",
-					"from": s.Conn().RemotePeer().String(),
-					"data": data.String(),
-				}).Info("fragment storage finish")
-				p.node.dones[data.Tag] <- true
-			}
-			return
 		}
 	}
 	lib.Logger.WithFields(logrus.Fields{
@@ -661,14 +649,14 @@ func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, 
 
 type UserOperationProtocol struct {
 	node       *UserNode
-	operations map[string]*tpUser.Operation
+	operations map[string]map[peer.ID]*tpUser.Operation
 	dones      map[string]chan bool
 }
 
 func NewUserOperationProtocol(n *UserNode) *UserOperationProtocol {
 	return &UserOperationProtocol{
 		node:       n,
-		operations: make(map[string]*tpUser.Operation),
+		operations: make(map[string]map[peer.ID]*tpUser.Operation),
 		dones:      make(map[string]chan bool),
 	}
 }
@@ -677,7 +665,7 @@ func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId,
 	op := &pb.OperationRequest{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Tag:         tag,
-		Operation:   p.operations[tag].ToBytes(),
+		Operation:   p.operations[tag][peerId].ToBytes(),
 	}
 	signature, err := p.node.signProtoMessage(op)
 	if err != nil {
@@ -690,8 +678,8 @@ func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId,
 			"type": "operation request",
 			"to":   peerId,
 			"data": op.String(),
-		}).Info("protocol sent")
+		}).Info("operation request sent success")
 		return nil
 	}
-	return errors.New("failed to send protocol")
+	return errors.New("failed to send operation request")
 }

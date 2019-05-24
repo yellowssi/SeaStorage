@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
-	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	p2pPeerStore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
@@ -62,7 +61,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	if err != nil {
 		return nil, err
 	}
-	n := p2p.NewUserNode(host)
+	n := p2p.NewUserNode(host, c)
 	// TODO: 当用户需要是启动监听，上传或下载结束后停止监听
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
@@ -194,15 +193,15 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	done := make(chan bool)
 	go func() {
 		<-done
-		seas, err := lib.ListSeasPeerId("", 20)
+		seas, err := lib.ListSeasPublicKey("", 20)
 		if err != nil || len(seas) == 0 {
 			lib.Logger.Error("failed to get seas:", err)
 			return
 		}
-		fragmentSeas := make([][]p2pPeer.ID, 0)
+		fragmentSeas := make([][]p2pCrypto.PubKey, 0)
 		for i := range info.Fragments {
 			// TODO: Algorithm for select sea && user selected seas
-			peers := make([]p2pPeer.ID, 0)
+			peers := make([]p2pCrypto.PubKey, 0)
 			if len(seas) <= 3 {
 				peers = append(peers, seas...)
 			} else {
@@ -236,7 +235,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 }
 
 // Upload the file into the seas
-func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pPeer.ID) error {
+func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2pCrypto.PubKey) error {
 	if len(seas) != len(fileInfo.Fragments) {
 		return errors.New("the storage destination is not enough")
 	}
@@ -256,10 +255,9 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]p2
 		if subErr != nil {
 			continue
 		}
-		operation := c.GenerateOperation(dst, fileInfo.Name, fragment.Hash, stat.Size())
 		wg.Add(1)
 		go func() {
-			err = c.Upload(f, operation, seas[i])
+			err = c.Upload(f, dst, fileInfo.Name, fragment.Hash, stat.Size(), seas[i])
 			if err != nil {
 				lib.Logger.WithField("hash", fragment.Hash).Error(err)
 			}

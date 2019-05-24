@@ -41,7 +41,7 @@ func (c *Client) SeaRegister() error {
 	if err != nil {
 		return err
 	}
-	logrus.WithFields(logrus.Fields{
+	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),
 		"address":    c.GetAddress(),

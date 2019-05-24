@@ -95,7 +95,7 @@ func initConfig() {
 // initLogger config logger
 func initLogger() {
 	lib.Logger = logrus.New()
-	lib.Logger.SetFormatter(&logrus.TextFormatter{})
+	lib.Logger.SetFormatter(&logrus.JSONFormatter{})
 	os.MkdirAll(lib.DefaultLogPath, 0755)
 	logFile, err := os.OpenFile(path.Join(lib.DefaultLogPath, "SeaStorage"), os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
