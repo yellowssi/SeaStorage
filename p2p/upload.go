@@ -191,7 +191,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			lib.Logger.Error("failed to create file:", targetFile)
 			return
 		}
-		for i := int64(0); i < data.Id; i++ {
+		for i := int64(0); i < data.PackageId; i++ {
 			fragment, err := ioutil.ReadFile(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
 			if err != nil {
 				if os.IsNotExist(err) {
@@ -213,7 +213,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 				return
 			}
 		}
-		for i := int64(0); i < data.Id; i++ {
+		for i := int64(0); i < data.PackageId; i++ {
 			os.Remove(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
 		}
 		err = f.Truncate(queryResponse.Size)
@@ -235,9 +235,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			lib.Logger.Error("failed to calculate file hash:", targetFile)
 			return
 		}
-		err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.Id)
+		err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
 		if err != nil {
-			err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.Id)
+			err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
 		}
 		if err == nil {
 			uploadMap, ok := p.node.uploads[tpCrypto.BytesToHex(data.MessageData.NodePubKey)]
@@ -254,7 +254,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			}).Error("failed to sent response")
 		}
 	} else {
-		filename := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp", data.Tag+"-"+strconv.FormatInt(data.Id, 10))
+		filename := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp", data.Tag+"-"+strconv.FormatInt(data.PackageId, 10))
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			lib.Logger.Error("failed to create fragment:", err)
@@ -271,7 +271,7 @@ func (p *SeaUploadProtocol) sendUploadResponse(peerId peer.ID, messageId, tag, h
 	resp := &pb.UploadResponse{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Tag:         tag,
-		Id:          id,
+		PackageId:   id,
 		Hash:        hash,
 	}
 	signature, err := p.node.signProtoMessage(resp)
@@ -536,10 +536,10 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 	}
 
 	packages := p.node.packages[data.Tag]
-	if data.Id < packages {
-		err := p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.Id)
+	if data.PackageId < packages {
+		err := p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
 		if err != nil {
-			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.Id)
+			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
 			if err != nil {
 				lib.Logger.WithFields(logrus.Fields{
 					"type": "upload response",
@@ -567,7 +567,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 			"tag":  data.Tag,
 		}).Info("send upload protocol success")
 		return
-	} else if data.Id == packages {
+	} else if data.PackageId == packages {
 		operation, ok := p.node.operations[data.Tag]
 		logrus.WithFields(logrus.Fields{"tag": data.Tag, "operation": operation}).Debug("check")
 		if ok && data.Hash == operation.Hash {
@@ -627,7 +627,7 @@ func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, 
 	if id == p.packages[tag] {
 		req = &pb.UploadRequest{
 			MessageData: p.node.NewMessageData(messageId, true),
-			Id:          id,
+			PackageId:   id,
 			Tag:         tag,
 			Data:        nil,
 		}
@@ -640,7 +640,7 @@ func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, 
 		}
 		req = &pb.UploadRequest{
 			MessageData: p.node.NewMessageData(messageId, true),
-			Id:          id,
+			PackageId:   id,
 			Tag:         tag,
 			Data:        buf[:n],
 		}

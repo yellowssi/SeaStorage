@@ -130,7 +130,7 @@ func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, ha
 	if id == p.srcs[peerPub][hash].packages {
 		req = &pb.DownloadResponse{
 			MessageData: p.node.NewMessageData(messageId, true),
-			Id:          id,
+			PackageId:   id,
 			Hash:        hash,
 			Data:        nil,
 		}
@@ -142,7 +142,7 @@ func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, ha
 		}
 		req = &pb.DownloadResponse{
 			MessageData: p.node.NewMessageData(messageId, true),
-			Id:          id,
+			PackageId:   id,
 			Hash:        hash,
 			Data:        buf[:n],
 		}
@@ -216,7 +216,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 		return
 	}
 
-	if data.Id == downloadInfo.packages {
+	if data.PackageId == downloadInfo.packages {
 		delete(p.node.srcs[peerPub], data.Hash)
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
@@ -224,9 +224,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 			"data": data.String(),
 		}).Info("download success")
 	} else {
-		err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.Id)
+		err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.PackageId)
 		if err != nil {
-			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.Id)
+			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, peerPub, data.Hash, data.PackageId)
 			if err != nil {
 				lib.Logger.Error("failed to send package")
 				return
@@ -304,7 +304,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 			lib.Logger.Error("failed to create file:", targetFile)
 			return
 		}
-		for i := int64(0); i < data.Id; i++ {
+		for i := int64(0); i < data.PackageId; i++ {
 			fragment, err := ioutil.ReadFile(path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10)))
 			if err != nil {
 				if os.IsNotExist(err) {
@@ -343,22 +343,22 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 			lib.Logger.Error("hash is invalid:", targetFile)
 			return
 		}
-		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.Id)
+		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
 		if err != nil {
-			err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.Id)
+			err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
 			if err != nil {
 				lib.Logger.Error("failed to send confirm")
 			}
 		}
 		p.downloads[data.Hash].done <- true
 	} else {
-		if data.Id == 0 {
+		if data.PackageId == 0 {
 			err = os.Mkdir(path.Join(lib.DefaultTmpPath, data.Hash), 0700)
 			if err != nil {
 				panic(err)
 			}
 		}
-		filename := path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(data.Id, 10))
+		filename := path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(data.PackageId, 10))
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			f, err := os.Create(filename)
 			if err != nil {
@@ -406,7 +406,7 @@ func (p *UserDownloadProtocol) sendDownloadConfirm(peerId peer.ID, messageId, ha
 	req := &pb.DownloadConfirm{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Hash:        hash,
-		Id:          id,
+		PackageId:   id,
 	}
 	signature, err := p.node.signProtoMessage(req)
 	if err != nil {

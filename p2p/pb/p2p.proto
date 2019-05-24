@@ -30,14 +30,14 @@ message UploadQueryResponse {
 message UploadRequest {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
-    int64 id = 3; // the id of data package
+    int64 packageId = 3; // the id of data package
     bytes data = 4; // the data of file
 }
 
 message UploadResponse {
     MessageData messageData = 1;
     string tag = 2; // hash(path + name)
-    int64 id = 3; // the id of data package
+    int64 packageId = 3; // the id of data package
     string hash = 4; // hash(data)
 }
 
@@ -55,12 +55,12 @@ message DownloadRequest {
 message DownloadResponse {
     MessageData messageData = 1;
     string hash = 2; // the hash of file
-    int64 id = 3; // the id of data package
+    int64 packageId = 3; // the id of data package
     bytes data = 4; // the data of file
 }
 
 message DownloadConfirm {
     MessageData messageData = 1;
     string hash = 2;
-    int64 id = 3;
+    int64 packageId = 3;
 }
