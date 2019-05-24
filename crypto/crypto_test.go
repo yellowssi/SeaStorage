@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"encoding/json"
 	"fmt"
 	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
@@ -91,5 +92,6 @@ func TestGenerateFileInfo(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(info)
+	data, _ := json.Marshal(info)
+	t.Log(string(data))
 }
