@@ -22,7 +22,7 @@ var userCli, seaCli *lib.ClientFramework
 var seaNode *SeaNode
 var userNode *UserNode
 var seaPeer p2pPeer.ID
-var seaPub p2pCrypto.PubKey
+var seaPub string
 var userPeer p2pPeer.ID
 var pubHash, priHash string
 var pubSize, priSize int64
@@ -39,7 +39,7 @@ func init() {
 	seaPrivBytes, _ := ioutil.ReadFile("./test/sea.priv")
 	seaPriv, _ := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(seaPrivBytes)))
 	seaPubBytes, _ := ioutil.ReadFile("./test/sea.pub")
-	seaPub, _ = p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(string(seaPubBytes)))
+	seaPub = string(seaPubBytes)
 	seaCtx := context.Background()
 	seaHost, _ := libp2p.New(seaCtx, libp2p.ListenAddrs(seaAddr), libp2p.Identity(seaPriv))
 	seaPeer = seaHost.ID()
@@ -65,14 +65,14 @@ func TestUpload(t *testing.T) {
 		stat, _ := src.Stat()
 		pubSize = stat.Size()
 		pubHash, _ = crypto.CalFileHash(src)
-		userNode.Upload(src, "/", "test", pubHash, pubSize, []p2pCrypto.PubKey{seaPub})
+		userNode.Upload(src, "/", "test", pubHash, pubSize, []string{seaPub})
 	}()
 	go func() {
 		src, _ := os.Open("./test/user.priv")
 		stat, _ := src.Stat()
 		priSize = stat.Size()
 		priHash, _ = crypto.CalFileHash(src)
-		userNode.Upload(src, "/", "test", priHash, priSize, []p2pCrypto.PubKey{seaPub})
+		userNode.Upload(src, "/", "test", priHash, priSize, []string{seaPub})
 	}()
 	time.Sleep(5 * time.Second)
 }

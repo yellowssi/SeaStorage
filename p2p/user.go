@@ -12,11 +12,18 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"math"
 	"os"
+	"sync"
 )
 
 type UserNode struct {
-	uploadInfos   map[string]*userUploadInfo
-	downloadInfos map[string]*userDownloadInfo
+	uploadInfos struct {
+		sync.RWMutex
+		m map[string]*userUploadInfo
+	}
+	downloadInfos struct {
+		sync.RWMutex
+		m map[string]*userDownloadInfo
+	}
 	*lib.ClientFramework
 	*Node
 	*UserUploadQueryProtocol
@@ -29,8 +36,14 @@ func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
 	n := &UserNode{
 		Node:            NewNode(host),
 		ClientFramework: cli,
-		uploadInfos:     make(map[string]*userUploadInfo),
-		downloadInfos:   make(map[string]*userDownloadInfo),
+		uploadInfos: struct {
+			sync.RWMutex
+			m map[string]*userUploadInfo
+		}{m: make(map[string]*userUploadInfo)},
+		downloadInfos: struct {
+			sync.RWMutex
+			m map[string]*userDownloadInfo
+		}{m: make(map[string]*userDownloadInfo)},
 	}
 	n.UserUploadQueryProtocol = NewUserUploadQueryProtocol(n)
 	n.UserUploadProtocol = NewUserUploadProtocol(n)
@@ -42,13 +55,12 @@ func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
 func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []string) {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(dst + name + hash))
-	n.uploadInfos[tag] = &userUploadInfo{
+	uploadInfo := &userUploadInfo{
 		src:        src,
 		packages:   int64(math.Ceil(float64(size) / float64(lib.PackageSize))),
 		operations: make(map[peer.ID]*tpUser.Operation),
 		done:       done,
 	}
-	uploadInfo := n.uploadInfos[tag]
 	for _, s := range seas {
 		seaPub, err := p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s))
 		if err != nil {
@@ -58,30 +70,28 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 		if err != nil {
 			continue
 		}
-		uploadInfo.lock.Lock()
 		uploadInfo.operations[seaId] = n.GenerateOperation(s, dst, name, hash, size)
-		uploadInfo.lock.Unlock()
 		err = n.SendUploadQuery(seaId, tag, size)
 		if err != nil {
 			err = n.SendUploadQuery(seaId, tag, size)
 			if err != nil {
-				uploadInfo.lock.Lock()
 				delete(uploadInfo.operations, seaId)
-				uploadInfo.lock.Unlock()
 				continue
 			}
 		}
 	}
-	go func() {
-		if len(uploadInfo.operations) == 0 {
-			done <- true
-		}
-	}()
-	<-done
+	n.uploadInfos.Lock()
+	n.uploadInfos.m[tag] = uploadInfo
+	n.uploadInfos.Unlock()
+	if len(uploadInfo.operations) > 0 {
+		<-done
+	}
 	lib.Logger.WithFields(logrus.Fields{
 		"tag": tag,
-	}).Info("upload finish")
-	delete(n.uploadInfos, tag)
+	}).Info("fragment upload finish")
+	n.uploadInfos.Lock()
+	delete(n.uploadInfos.m, tag)
+	n.uploadInfos.Unlock()
 }
 
 func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {

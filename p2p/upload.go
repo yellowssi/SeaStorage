@@ -34,7 +34,7 @@ const (
  */
 
 type seaUploadInfo struct {
-	lock        sync.RWMutex
+	sync.RWMutex
 	downloading int
 	query       *pb.UploadQueryRequest
 	hash        string
@@ -264,9 +264,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 			}).Error("failed to sent response")
 		}
 	} else {
-		uploadInfo.lock.Lock()
+		uploadInfo.Lock()
 		uploadInfo.downloading++
-		uploadInfo.lock.Unlock()
+		uploadInfo.Unlock()
 		filename := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp", data.Tag+"-"+strconv.FormatInt(data.PackageId, 10))
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
@@ -277,9 +277,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 		if err != nil {
 			lib.Logger.Error("failed to write data to file:", filename)
 		}
-		uploadInfo.lock.Lock()
+		uploadInfo.Lock()
 		uploadInfo.downloading--
-		uploadInfo.lock.Unlock()
+		uploadInfo.Unlock()
 	}
 }
 
@@ -433,7 +433,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
  */
 
 type userUploadInfo struct {
-	lock       sync.RWMutex
+	sync.RWMutex
 	src        *os.File
 	packages   int64
 	operations map[peer.ID]*tpUser.Operation
@@ -554,7 +554,9 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 		return
 	}
 
-	uploadInfo, ok := p.node.uploadInfos[data.Tag]
+	p.node.uploadInfos.Lock()
+	uploadInfo, ok := p.node.uploadInfos.m[data.Tag]
+	p.node.uploadInfos.Unlock()
 	if ok {
 		if data.PackageId < uploadInfo.packages {
 			err := p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
@@ -621,7 +623,9 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 }
 
 func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
-	uploadInfo, ok := p.node.uploadInfos[tag]
+	p.node.uploadInfos.Lock()
+	uploadInfo, ok := p.node.uploadInfos.m[tag]
+	p.node.uploadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"from": peerId.String(),
@@ -639,7 +643,9 @@ func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
 
 func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, id int64) error {
 	var req *pb.UploadRequest
-	uploadInfo := p.node.uploadInfos[tag]
+	p.node.uploadInfos.Lock()
+	uploadInfo := p.node.uploadInfos.m[tag]
+	p.node.uploadInfos.Unlock()
 	if id == uploadInfo.packages {
 		req = &pb.UploadRequest{
 			MessageData: p.node.NewMessageData(messageId, true),
@@ -688,10 +694,16 @@ func NewUserOperationProtocol(n *UserNode) *UserOperationProtocol {
 }
 
 func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId, tag string) error {
+	p.node.uploadInfos.Lock()
+	uploadInfoMap := p.node.uploadInfos.m[tag]
+	p.node.uploadInfos.Unlock()
+	uploadInfoMap.Lock()
+	operation := uploadInfoMap.operations[peerId]
+	uploadInfoMap.Unlock()
 	op := &pb.OperationRequest{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Tag:         tag,
-		Operation:   p.node.uploadInfos[tag].operations[peerId].ToBytes(),
+		Operation:   operation.ToBytes(),
 	}
 	signature, err := p.node.signProtoMessage(op)
 	if err != nil {
@@ -704,7 +716,7 @@ func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId,
 			"type":      "operation request",
 			"to":        peerId,
 			"tag":       tag,
-			"operation": p.node.uploadInfos[tag].operations[peerId],
+			"operation": operation,
 		}).Info("operation request sent success")
 		return nil
 	}

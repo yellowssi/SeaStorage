@@ -6,7 +6,6 @@ require (
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
 	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/deckarep/golang-set v1.7.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
 	github.com/google/go-cmp v0.3.0 // indirect

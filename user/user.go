@@ -189,33 +189,10 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		return nil, err
 	}
 
-	// TODO: 并行监视transaction完成情况，通过channel控制文件上传
-	done := make(chan bool)
-	go func() {
-		<-done
-		seas, err := lib.ListSeasPublicKey("", 20)
-		if err != nil || len(seas) == 0 {
-			lib.Logger.Error("failed to get seas:", err)
-			return
-		}
-		fragmentSeas := make([][]string, 0)
-		for i := range info.Fragments {
-			// TODO: Algorithm for select sea && user selected seas
-			peers := make([]string, 0)
-			if len(seas) <= 3 {
-				peers = append(peers, seas...)
-			} else {
-				for j := i; j <= i+len(seas); j++ {
-					peers = append(peers, seas[j%len(seas)])
-					if len(peers) >= 3 {
-						break
-					}
-				}
-			}
-			fragmentSeas = append(fragmentSeas, peers)
-		}
-		c.uploadFile(info, dst, fragmentSeas)
-	}()
+	seas, err := lib.ListSeasPublicKey("", 20)
+	if err != nil || len(seas) == 0 {
+		return nil, err
+	}
 
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action:   tpPayload.UserCreateFile,
@@ -227,7 +204,24 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if err != nil {
 		return nil, err
 	}
-	done <- true
+	// TODO: Watching transaction status
+	fragmentSeas := make([][]string, 0)
+	for i := range info.Fragments {
+		// TODO: Algorithm for select sea && user selected seas
+		peers := make([]string, 0)
+		if len(seas) <= 3 {
+			peers = append(peers, seas...)
+		} else {
+			for j := i; j <= i+len(seas); j++ {
+				peers = append(peers, seas[j%len(seas)])
+				if len(peers) >= 3 {
+					break
+				}
+			}
+		}
+		fragmentSeas = append(fragmentSeas, peers)
+	}
+	c.uploadFile(info, dst, fragmentSeas)
 	return response, nil
 }
 
@@ -245,10 +239,12 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 		}
 		wg.Add(1)
 		go func(src *os.File, hash string, size int64, seas []string) {
+			defer wg.Done()
 			c.Upload(src, dst, fileInfo.Name, hash, size, seas)
 		}(f, fragment.Hash, fragment.Size, seas[i])
 	}
 	wg.Wait()
+	lib.Logger.WithFields(logrus.Fields{}).Info("file upload finish")
 }
 
 // List directory infos in the path

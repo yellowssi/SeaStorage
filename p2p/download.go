@@ -235,7 +235,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 }
 
 type userDownloadInfo struct {
-	lock        sync.RWMutex
+	sync.RWMutex
 	downloading int
 	dst         string
 	size        int64
@@ -285,7 +285,9 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		return
 	}
 
-	downloadInfo, ok := p.node.downloadInfos[data.Hash]
+	p.node.downloadInfos.Lock()
+	downloadInfo, ok := p.node.downloadInfos.m[data.Hash]
+	p.node.downloadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload response",
@@ -361,9 +363,9 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		}
 		downloadInfo.done <- true
 	} else {
-		downloadInfo.lock.Lock()
+		downloadInfo.Lock()
 		downloadInfo.downloading++
-		downloadInfo.lock.Unlock()
+		downloadInfo.Unlock()
 		if data.PackageId == 0 {
 			err = os.Mkdir(path.Join(lib.DefaultTmpPath, data.Hash), 0700)
 			if err != nil {
@@ -383,19 +385,21 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		} else {
 			lib.Logger.Error("file exists:", filename)
 		}
-		downloadInfo.lock.Lock()
+		downloadInfo.Lock()
 		downloadInfo.downloading--
-		downloadInfo.lock.Unlock()
+		downloadInfo.Unlock()
 	}
 }
 
 func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash string, size int64) error {
 	done := make(chan bool)
-	p.node.downloadInfos[hash] = &userDownloadInfo{
+	p.node.downloadInfos.Lock()
+	p.node.downloadInfos.m[hash] = &userDownloadInfo{
 		dst:  dst,
 		size: size,
 		done: done,
 	}
+	p.node.downloadInfos.Unlock()
 	req := &pb.DownloadRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
 		Hash:        hash,
@@ -413,7 +417,9 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash st
 		}
 	}
 	<-done
-	delete(p.node.downloadInfos, hash)
+	p.node.downloadInfos.Lock()
+	delete(p.node.downloadInfos.m, hash)
+	p.node.downloadInfos.Unlock()
 	return nil
 }
 
