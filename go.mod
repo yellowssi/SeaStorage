@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
-	github.com/btcsuite/btcd v0.0.0-20190427004231-96897255fd17 // indirect
+	github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
@@ -35,12 +35,12 @@ require (
 	github.com/sirupsen/logrus v1.4.1
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
-	gitlab.com/SeaStorage/SeaStorage-TP v1.0.4
+	gitlab.com/SeaStorage/SeaStorage-TP v0.0.0-20190525152235-a0ebca374732
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f // indirect
 	golang.org/x/lint v0.0.0-20190409202823-959b441ac422 // indirect
-	golang.org/x/net v0.0.0-20190520210107-018c4d40a106 // indirect
-	golang.org/x/sys v0.0.0-20190520201301-c432e742b0af // indirect
+	golang.org/x/net v0.0.0-20190522155817-f3200d17e092 // indirect
+	golang.org/x/sys v0.0.0-20190524152521-dbbf3f1254d4 // indirect
 	golang.org/x/text v0.3.2 // indirect
-	golang.org/x/tools v0.0.0-20190521203540-521d6ed310dd // indirect
+	golang.org/x/tools v0.0.0-20190525145741-7be61e1b0e51 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 )

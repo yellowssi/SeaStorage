@@ -15,6 +15,7 @@ import (
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"os"
 	"path"
@@ -264,7 +265,9 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 //}
 
 func (cf *ClientFramework) GenerateOperation(sea, path, name, hash string, size int64) *tpUser.Operation {
-	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), sea, path, name, hash, size, *cf.signer)
+	packages := time.Duration(math.Ceil(float64(size) / float64(PackageSize)))
+	timestamp := time.Now().Add(packages * time.Hour).Unix()
+	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), sea, path, name, hash, size, timestamp, *cf.signer)
 }
 
 func (cf *ClientFramework) Whoami() {
