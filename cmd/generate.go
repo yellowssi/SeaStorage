@@ -16,12 +16,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/manifoldco/promptui"
-	"github.com/spf13/cobra"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"os"
 	"os/user"
 	"path"
+
+	"github.com/manifoldco/promptui"
+	"github.com/spf13/cobra"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 // generateCmd represents the generate command

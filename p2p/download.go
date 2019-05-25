@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
 	"math"
@@ -12,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/uuid"
 	inet "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"

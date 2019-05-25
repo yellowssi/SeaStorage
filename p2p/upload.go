@@ -2,10 +2,17 @@ package p2p
 
 import (
 	"errors"
+	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+	"sync"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
+	p2pNet "github.com/libp2p/go-libp2p-net"
+	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
@@ -13,12 +20,6 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
-	"io"
-	"io/ioutil"
-	"os"
-	"path"
-	"strconv"
-	"sync"
 )
 
 const (
@@ -52,7 +53,7 @@ func NewSeaUploadQueryProtocol(node *SeaNode) *SeaUploadQueryProtocol {
 	return p
 }
 
-func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s inet.Stream) {
+func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 	data := &pb.UploadQueryRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -137,7 +138,7 @@ func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	return p
 }
 
-func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
+func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 	data := &pb.UploadRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -283,7 +284,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s inet.Stream) {
 	}
 }
 
-func (p *SeaUploadProtocol) sendUploadResponse(peerId peer.ID, messageId, tag, hash string, id int64) error {
+func (p *SeaUploadProtocol) sendUploadResponse(peerId p2pPeer.ID, messageId, tag, hash string, id int64) error {
 	resp := &pb.UploadResponse{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Tag:         tag,
@@ -329,7 +330,7 @@ func NewSeaOperationProtocol(node *SeaNode) *SeaOperationProtocol {
 	return p
 }
 
-func (p *SeaOperationProtocol) onOperationRequest(s inet.Stream) {
+func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 	data := &pb.OperationRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -436,7 +437,7 @@ type userUploadInfo struct {
 	sync.RWMutex
 	src        *os.File
 	packages   int64
-	operations map[peer.ID]*tpUser.Operation
+	operations map[p2pPeer.ID]*tpUser.Operation
 	done       chan bool
 }
 
@@ -452,7 +453,7 @@ func NewUserUploadQueryProtocol(node *UserNode) *UserUploadQueryProtocol {
 	return p
 }
 
-func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
+func (p *UserUploadQueryProtocol) onUploadQueryResponse(s p2pNet.Stream) {
 	data := &pb.UploadQueryResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -486,7 +487,7 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s inet.Stream) {
 	p.node.sendUpload(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 }
 
-func (p *UserUploadQueryProtocol) SendUploadQuery(peerId peer.ID, tag string, size int64) error {
+func (p *UserUploadQueryProtocol) SendUploadQuery(peerId p2pPeer.ID, tag string, size int64) error {
 	req := &pb.UploadQueryRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
 		Tag:         tag,
@@ -523,7 +524,7 @@ func NewUserUploadProtocol(node *UserNode) *UserUploadProtocol {
 	return p
 }
 
-func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
+func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 	data := &pb.UploadResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -622,7 +623,7 @@ func (p *UserUploadProtocol) onUploadResponse(s inet.Stream) {
 	}).Warn("invalid upload response")
 }
 
-func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
+func (p *UserUploadProtocol) sendUpload(peerId p2pPeer.ID, messageId, tag string) {
 	p.node.uploadInfos.Lock()
 	uploadInfo, ok := p.node.uploadInfos.m[tag]
 	p.node.uploadInfos.Unlock()
@@ -641,7 +642,7 @@ func (p *UserUploadProtocol) sendUpload(peerId peer.ID, messageId, tag string) {
 	}
 }
 
-func (p *UserUploadProtocol) sendPackage(peerId peer.ID, messageId, tag string, id int64) error {
+func (p *UserUploadProtocol) sendPackage(peerId p2pPeer.ID, messageId, tag string, id int64) error {
 	var req *pb.UploadRequest
 	p.node.uploadInfos.Lock()
 	uploadInfo := p.node.uploadInfos.m[tag]
@@ -693,7 +694,7 @@ func NewUserOperationProtocol(n *UserNode) *UserOperationProtocol {
 	}
 }
 
-func (p *UserOperationProtocol) sendOperationProtocol(peerId peer.ID, messageId, tag string) error {
+func (p *UserOperationProtocol) sendOperationProtocol(peerId p2pPeer.ID, messageId, tag string) error {
 	p.node.uploadInfos.Lock()
 	uploadInfoMap := p.node.uploadInfos.m[tag]
 	p.node.uploadInfos.Unlock()

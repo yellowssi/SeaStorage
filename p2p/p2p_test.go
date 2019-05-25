@@ -2,20 +2,21 @@ package p2p
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	p2pPeer "github.com/libp2p/go-libp2p-peer"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	p2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"io/ioutil"
-	"os"
-	"testing"
-	"time"
 )
 
 var userCli, seaCli *lib.ClientFramework
@@ -53,7 +54,7 @@ func init() {
 	kadDHT, _ := p2pDHT.New(userCtx, userHost)
 	_ = kadDHT.Bootstrap(userCtx)
 	sma, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6667/p2p/" + seaPeer.String())
-	seaInfo, _ := peerstore.InfoFromP2pAddr(sma)
+	seaInfo, _ := p2pPeerstore.InfoFromP2pAddr(sma)
 	_ = userHost.Connect(userCtx, *seaInfo)
 	userPeer = userHost.ID()
 	userNode = NewUserNode(userHost, userCli)

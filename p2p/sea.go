@@ -2,11 +2,12 @@ package p2p
 
 import (
 	"errors"
-	p2pHost "github.com/libp2p/go-libp2p-host"
-	peer "github.com/libp2p/go-libp2p-peer"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"os"
 	"path/filepath"
+
+	p2pHost "github.com/libp2p/go-libp2p-host"
+	p2pPeer "github.com/libp2p/go-libp2p-peer"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 type SeaNode struct {
@@ -14,8 +15,8 @@ type SeaNode struct {
 	storagePath   string
 	size          int64
 	freeSize      int64
-	uploadInfos   map[peer.ID]map[string]*seaUploadInfo
-	downloadInfos map[peer.ID]map[string]*seaDownloadInfo
+	uploadInfos   map[p2pPeer.ID]map[string]*seaUploadInfo
+	downloadInfos map[p2pPeer.ID]map[string]*seaDownloadInfo
 	*Node
 	*SeaUploadQueryProtocol
 	*SeaUploadProtocol
@@ -47,8 +48,8 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 		size:            size,
 		freeSize:        freeSize,
 		Node:            NewNode(host),
-		uploadInfos:     make(map[peer.ID]map[string]*seaUploadInfo),
-		downloadInfos:   make(map[peer.ID]map[string]*seaDownloadInfo),
+		uploadInfos:     make(map[p2pPeer.ID]map[string]*seaUploadInfo),
+		downloadInfos:   make(map[p2pPeer.ID]map[string]*seaDownloadInfo),
 	}
 	seaNode.SeaUploadQueryProtocol = NewSeaUploadQueryProtocol(seaNode)
 	seaNode.SeaUploadProtocol = NewSeaUploadProtocol(seaNode)

@@ -7,13 +7,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/klauspost/reedsolomon"
-	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"io"
 	"os"
 	"path"
+
+	"github.com/klauspost/reedsolomon"
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 func init() {
@@ -25,7 +26,7 @@ func init() {
 	}
 }
 
-func GenerateFileInfo(target string, dataShards, parShards int) (info storage.FileInfo, err error) {
+func GenerateFileInfo(target string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
 	// File Encrypt
 	inFile, err := os.Open(target)
 	if err != nil {
@@ -39,7 +40,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	if err != nil {
 		return
 	}
-	keyAes := crypto.GenerateRandomAESKey(lib.AESKeySize)
+	keyAes := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
 	hash, err := EncryptFile(inFile, outFile, keyAes)
 	if err != nil {
 		return
@@ -69,19 +70,19 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info storage.Fi
 	if err != nil {
 		return
 	}
-	fragments := make([]*storage.Fragment, dataShards+parShards)
+	fragments := make([]*tpStorage.Fragment, dataShards+parShards)
 	for i := range fragments {
-		fragments[i] = &storage.Fragment{
+		fragments[i] = &tpStorage.Fragment{
 			Hash: hashes[i],
 			Size: fragmentSize,
-			Seas: make([]*storage.FragmentSea, 0),
+			Seas: make([]*tpStorage.FragmentSea, 0),
 		}
 	}
-	info = storage.FileInfo{
+	info = tpStorage.FileInfo{
 		Name:      inFileInfo.Name(),
 		Size:      fileInfo.Size(),
 		Hash:      hash,
-		Key:       crypto.BytesToHex(keyAes),
+		Key:       tpCrypto.BytesToHex(keyAes),
 		Fragments: fragments,
 	}
 	return
@@ -120,10 +121,10 @@ func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err erro
 
 		outBuf := make([]byte, n)
 		ctr.XORKeyStream(outBuf, buf[:n])
-		hashes = append(hashes, crypto.SHA512BytesFromBytes(outBuf))
+		hashes = append(hashes, tpCrypto.SHA512BytesFromBytes(outBuf))
 		outFile.Write(outBuf)
 	}
-	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
+	hash = tpCrypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return
 }
 
@@ -150,12 +151,12 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 			return hash, err
 		}
 
-		hashes = append(hashes, crypto.SHA512BytesFromBytes(buf[:n]))
+		hashes = append(hashes, tpCrypto.SHA512BytesFromBytes(buf[:n]))
 		outBuf := make([]byte, n)
 		ctr.XORKeyStream(outBuf, buf[:n])
 		_, _ = outFile.Write(outBuf)
 	}
-	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
+	hash = tpCrypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return
 }
 
@@ -324,8 +325,8 @@ func CalFileHash(f *os.File) (hash string, err error) {
 		if err != nil && err != io.EOF {
 			return hash, err
 		}
-		hashes = append(hashes, crypto.SHA512BytesFromBytes(buf[:n]))
+		hashes = append(hashes, tpCrypto.SHA512BytesFromBytes(buf[:n]))
 	}
-	hash = crypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
+	hash = tpCrypto.SHA512HexFromBytes(bytes.Join(hashes, []byte{}))
 	return
 }

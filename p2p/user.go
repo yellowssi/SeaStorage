@@ -2,17 +2,18 @@ package p2p
 
 import (
 	"errors"
+	"math"
+	"os"
+	"sync"
+
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
-	peer "github.com/libp2p/go-libp2p-peer"
+	p2pHost "github.com/libp2p/go-libp2p-host"
+	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"math"
-	"os"
-	"sync"
 )
 
 type UserNode struct {
@@ -32,7 +33,7 @@ type UserNode struct {
 	*UserDownloadProtocol
 }
 
-func NewUserNode(host host.Host, cli *lib.ClientFramework) *UserNode {
+func NewUserNode(host p2pHost.Host, cli *lib.ClientFramework) *UserNode {
 	n := &UserNode{
 		Node:            NewNode(host),
 		ClientFramework: cli,
@@ -58,7 +59,7 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	uploadInfo := &userUploadInfo{
 		src:        src,
 		packages:   int64(math.Ceil(float64(size) / float64(lib.PackageSize))),
-		operations: make(map[peer.ID]*tpUser.Operation),
+		operations: make(map[p2pPeer.ID]*tpUser.Operation),
 		done:       done,
 	}
 	for _, s := range seas {
@@ -66,7 +67,7 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 		if err != nil {
 			continue
 		}
-		seaId, err := peer.IDFromPublicKey(seaPub)
+		seaId, err := p2pPeer.IDFromPublicKey(seaPub)
 		if err != nil {
 			continue
 		}
@@ -100,7 +101,7 @@ func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {
 		if err != nil {
 			continue
 		}
-		peerId, err := peer.IDFromPublicKey(publicKey)
+		peerId, err := p2pPeer.IDFromPublicKey(publicKey)
 		if err != nil {
 			continue
 		}

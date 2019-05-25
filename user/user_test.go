@@ -1,12 +1,13 @@
 package user
 
 import (
-	"github.com/sirupsen/logrus"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 var cli *Client

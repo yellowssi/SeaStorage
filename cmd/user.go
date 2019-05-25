@@ -18,15 +18,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/manifoldco/promptui"
-	"github.com/spf13/cobra"
-	"gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/user"
 	"os"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/manifoldco/promptui"
+	"github.com/spf13/cobra"
+	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"gitlab.com/SeaStorage/SeaStorage/user"
 )
 
 var userCommands = []string{
@@ -129,7 +130,7 @@ communicating with the transaction processor.`,
 					fmt.Println(err)
 				}
 			case "ls":
-				var iNodes []storage.INodeInfo
+				var iNodes []tpStorage.INodeInfo
 				if len(commands) == 1 {
 					iNodes, err = cli.ListDirectory(cli.PWD)
 				} else if len(commands) > 2 {
@@ -181,7 +182,7 @@ communicating with the transaction processor.`,
 					continue
 				}
 				switch iNode.(type) {
-				case *storage.Directory:
+				case *tpStorage.Directory:
 					confirmPrompt := &promptui.Prompt{
 						Label:     fmt.Sprintf("Remove directory %s? [y/N]", commands[1]),
 						Templates: commandTemplates,
@@ -198,7 +199,7 @@ communicating with the transaction processor.`,
 					default:
 						continue
 					}
-				case *storage.File:
+				case *tpStorage.File:
 					confirmPrompt := &promptui.Prompt{
 						Label:     fmt.Sprintf("Remove file %s? [y/N]", commands[1]),
 						Templates: commandTemplates,
@@ -261,7 +262,7 @@ func init() {
 	// userCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func printINodeInfo(iNodes []storage.INodeInfo) {
+func printINodeInfo(iNodes []tpStorage.INodeInfo) {
 	fmt.Println("Total", len(iNodes), "items.")
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
@@ -288,7 +289,7 @@ func printINodeInfo(iNodes []storage.INodeInfo) {
 	}
 }
 
-func printINode(iNode storage.INode) {
+func printINode(iNode tpStorage.INode) {
 	data, err := json.MarshalIndent(iNode, "", "\t")
 	if err != nil {
 		fmt.Println(err)

@@ -1,8 +1,9 @@
 package sea
 
 import (
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"testing"
+
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
 var sea *Client

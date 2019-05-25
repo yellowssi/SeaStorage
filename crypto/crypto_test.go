@@ -3,13 +3,14 @@ package crypto
 import (
 	"encoding/json"
 	"fmt"
-	"gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"os"
 	"testing"
+
+	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
-var key = crypto.GenerateRandomAESKey(lib.AESKeySize)
+var key = tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
 
 func init() {
 	lib.GenerateKey("test", "./test/")

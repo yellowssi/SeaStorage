@@ -17,10 +17,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/sea"
-	"os"
 )
 
 // seaCmd represents the sea command

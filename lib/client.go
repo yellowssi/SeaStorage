@@ -6,6 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"math/rand"
+	"os"
+	"path"
+	"strconv"
+	"time"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
@@ -14,13 +22,6 @@ import (
 	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"io/ioutil"
-	"math"
-	"math/rand"
-	"os"
-	"path"
-	"strconv"
-	"time"
 )
 
 const (
