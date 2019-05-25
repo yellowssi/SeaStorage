@@ -116,10 +116,17 @@ func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]inte
 
 func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
+	// construct the address
+	address := cf.GetAddress()
 
 	for _, seaStoragePayload := range seaStoragePayloads {
-		// construct the address
-		address := cf.GetAddress()
+		inputs := []string{address}
+		outputs := []string{address}
+
+		if seaStoragePayload.Action == tpPayload.SeaStoreFile {
+			inputs = append(inputs, seaStoragePayload.Operation.Address)
+			outputs = append(outputs, seaStoragePayload.Operation.Address)
+		}
 
 		// Construct TransactionHeader
 		rawTransactionHeader := transaction_pb2.TransactionHeader{
@@ -129,8 +136,8 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 			Dependencies:     []string{},
 			Nonce:            strconv.Itoa(rand.Int()),
 			BatcherPublicKey: cf.signer.GetPublicKey().AsHex(),
-			Inputs:           []string{address},
-			Outputs:          []string{address},
+			Inputs:           inputs,
+			Outputs:          outputs,
 			PayloadSha512:    tpCrypto.SHA512HexFromBytes(seaStoragePayload.ToBytes()),
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
