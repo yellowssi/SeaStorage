@@ -34,7 +34,7 @@ var seaCmd = &cobra.Command{
 			fmt.Println(errors.New("the name of user/sea is required"))
 			os.Exit(0)
 		}
-		cli, err := sea.NewSeaClient(name, keyFile)
+		cli, err := sea.NewSeaClient(name, lib.KeyFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -47,7 +47,7 @@ var seaCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}
-		cli.Bootstrap(keyFile, lib.StoragePath, lib.StorageSize, lib.BootstrapAddrs)
+		cli.Bootstrap(lib.KeyFile, lib.StoragePath, lib.StorageSize, lib.BootstrapAddrs)
 	},
 }
 

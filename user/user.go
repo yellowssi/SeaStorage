@@ -94,6 +94,20 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
 }
 
+// Sync user info from blockchain
+func (c *Client) Sync() error {
+	userBytes, err := c.GetData()
+	if err != nil {
+		return err
+	}
+	u, err := tpUser.UserFromBytes(userBytes)
+	if err != nil {
+		return err
+	}
+	c.User = u
+	return nil
+}
+
 // User register in the blockchain
 func (c *Client) UserRegister() error {
 	_, err := c.Register(c.Name)
@@ -108,14 +122,20 @@ func (c *Client) UserRegister() error {
 	return c.Sync()
 }
 
+// Fix Operation path
+func (c *Client) fixPath(p string) string {
+	if !strings.HasPrefix(p, "/") {
+		p = path.Join(c.PWD, p)
+	}
+	if !strings.HasSuffix(p, "/") {
+		p += "/"
+	}
+	return p
+}
+
 // Change Operation PWD
 func (c *Client) ChangePWD(dst string) error {
-	if !strings.HasPrefix(dst, "/") {
-		dst = path.Join(c.PWD, dst)
-	}
-	if !strings.HasSuffix(dst, "/") {
-		dst += "/"
-	}
+	dst = c.fixPath(dst)
 	_, err := c.User.Root.GetDirectory(dst)
 	if err != nil {
 		return err
@@ -131,13 +151,7 @@ func (c *Client) GetSize() int64 {
 
 // Get iNode of the path
 func (c *Client) GetINode(p string) (tpStorage.INode, error) {
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
-	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
-	}
-	pathParams := strings.Split(p, "/")
+	pathParams := strings.Split(c.fixPath(p), "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
 	return c.User.Root.GetINode(p, name)
@@ -146,12 +160,7 @@ func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 // TODO: Create Directory & Create All Directory
 // Create all directory of the path
 func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
-	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
-	}
+	p = c.fixPath(p)
 	err := c.User.Root.CreateDirectory(p)
 	if err != nil {
 		return nil, err
@@ -169,12 +178,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if !strings.HasPrefix(src, "/") {
 		return nil, errors.New("the source path should be full path")
 	}
-	if !strings.HasPrefix(dst, "/") {
-		dst = path.Join(c.PWD, dst)
-	}
-	if !strings.HasSuffix(dst, "/") {
-		dst += "/"
-	}
+	dst = c.fixPath(dst)
 	// Check Destination Path exists
 	_, err := c.User.Root.GetDirectory(dst)
 	if err != nil {
@@ -249,23 +253,12 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 
 // List directory infos in the path
 func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
-	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
-	}
-	return c.User.Root.ListDirectory(p)
+	return c.User.Root.ListDirectory(c.fixPath(p))
 }
 
 // Delete the directory of the path
 func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
-	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
-	}
+	p = c.fixPath(p)
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
@@ -284,12 +277,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 
 // Delete the file of the path
 func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
-	if !strings.HasPrefix(p, "/") {
-		p = path.Join(c.PWD, p)
-	}
-	if !strings.HasSuffix(p, "/") {
-		p += "/"
-	}
+	p = c.fixPath(p)
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
@@ -381,7 +369,12 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	defer inFile.Close()
 	dstFile, err := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	defer dstFile.Close()
-	hash, err := crypto.DecryptFile(inFile, dstFile, tpCrypto.HexToBytes(c.User.Root.Keys[f.KeyIndex].Key))
+	key, err := c.DecryptFileKey(c.User.Root.Keys[f.KeyIndex].Key)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	hash, err := crypto.DecryptFile(inFile, dstFile, key)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -393,16 +386,57 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	}
 }
 
-// Sync user info from blockchain
-func (c *Client) Sync() error {
-	userBytes, err := c.GetData()
+func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
+	iNode, err := c.GetINode(p)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	u, err := tpUser.UserFromBytes(userBytes)
+	switch iNode.(type) {
+	case *tpStorage.File:
+		payload, err := c.publicFileKey(iNode.(*tpStorage.File))
+		if err != nil {
+			return nil, err
+		}
+		return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+	case *tpStorage.Directory:
+		payloads, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
+		if err != nil {
+			return nil, err
+		}
+		return c.SendTransaction(payloads, lib.DefaultWait)
+	}
+	return nil, errors.New("failed to public key")
+}
+
+func (c *Client) publicDirectoryKey(dir *tpStorage.Directory) ([]tpPayload.SeaStoragePayload, error) {
+	payloads := make([]tpPayload.SeaStoragePayload, 0)
+	for _, iNode := range dir.INodes {
+		switch iNode.(type) {
+		case *tpStorage.File:
+			payload, err := c.publicFileKey(iNode.(*tpStorage.File))
+			if err != nil {
+				return nil, err
+			}
+			payloads = append(payloads, payload)
+		case *tpStorage.Directory:
+			subPayloads, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
+			if err != nil {
+				return nil, err
+			}
+			payloads = append(payloads, subPayloads...)
+		}
+	}
+	return payloads, nil
+}
+
+func (c *Client) publicFileKey(file *tpStorage.File) (payload tpPayload.SeaStoragePayload, err error) {
+	key, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
 	if err != nil {
-		return err
+		return
 	}
-	c.User = u
-	return nil
+	err = c.User.Root.PublicKey(c.GetPublicKey(), tpCrypto.BytesToHex(key))
+	if err != nil {
+		return
+	}
+	return tpPayload.SeaStoragePayload{Action: tpPayload.UserPublicKey}, nil
 }

@@ -47,6 +47,7 @@ const (
 
 var (
 	Logger                *logrus.Logger
+	KeyFile               string
 	DefaultKeyPath        string
 	DefaultConfigPath     string
 	DefaultStoragePath    string

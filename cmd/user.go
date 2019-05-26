@@ -49,6 +49,11 @@ var userCommands = []string{
 	"exit",
 }
 
+var (
+	missingOperandError = errors.New("missing operand")
+	invalidPathError    = errors.New("invalid path")
+)
+
 // userCmd represents the user command
 var userCmd = &cobra.Command{
 	Use:   "user",
@@ -60,7 +65,7 @@ communicating with the transaction processor.`,
 			fmt.Println(errors.New("the name of user/sea is required"))
 			os.Exit(0)
 		}
-		cli, err := user.NewUserClient(name, keyFile, lib.BootstrapAddrs)
+		cli, err := user.NewUserClient(name, lib.KeyFile, lib.BootstrapAddrs)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -224,9 +229,9 @@ communicating with the transaction processor.`,
 				}
 			case "get":
 				if len(commands) < 2 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
-					fmt.Println(errors.New("invalid path"))
+					fmt.Println(invalidPathError)
 				} else {
 					iNode, err := cli.GetINode(commands[1])
 					if err != nil {
@@ -237,11 +242,24 @@ communicating with the transaction processor.`,
 				}
 			case "download":
 				if len(commands) < 3 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
 				} else if len(commands) > 3 {
-					fmt.Println(errors.New("invalid path"))
+					fmt.Println(invalidPathError)
 				} else {
 					cli.DownloadFiles(commands[1], commands[2])
+				}
+			case "public-key":
+				if len(commands) < 2 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 2 {
+					fmt.Println(invalidPathError)
+				} else {
+					response, err = cli.PublicKey(commands[1])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						lib.PrintResponse(response)
+					}
 				}
 			}
 		}

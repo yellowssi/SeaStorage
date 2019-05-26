@@ -281,6 +281,11 @@ func (cf *ClientFramework) Whoami() {
 	fmt.Println("Sawtooth address: " + cf.GetAddress())
 }
 
+func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
+	privateKey, _ := ioutil.ReadFile(KeyFile)
+	return tpCrypto.Decryption(string(privateKey), key)
+}
+
 func GenerateKey(keyName string, keyPath string) {
 	cont := signing.NewSecp256k1Context()
 	pri := cont.NewRandomPrivateKey()
