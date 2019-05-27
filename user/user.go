@@ -305,18 +305,27 @@ func (c *Client) DownloadFiles(p, dst string) {
 	case *tpStorage.File:
 		c.downloadFile(iNode.(*tpStorage.File), dst)
 	case *tpStorage.Directory:
-		c.downloadDirectory(iNode.(*tpStorage.Directory), dst)
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		c.downloadDirectory(iNode.(*tpStorage.Directory), dst, wg)
+		wg.Wait()
 	}
 }
 
 // Download the directory and all the files in it into the dst path in the system
-func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string) {
+func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
 		case *tpStorage.File:
-			go c.downloadFile(iNode.(*tpStorage.File), path.Join(dst, dir.Name))
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				c.downloadFile(iNode.(*tpStorage.File), path.Join(dst, dir.Name))
+			}()
 		case *tpStorage.Directory:
-			go c.downloadDirectory(iNode.(*tpStorage.Directory), path.Join(dst, dir.Name))
+			wg.Add(1)
+			go c.downloadDirectory(iNode.(*tpStorage.Directory), path.Join(dst, dir.Name), wg)
 		}
 	}
 }

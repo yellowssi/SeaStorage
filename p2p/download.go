@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
@@ -247,7 +248,7 @@ type userDownloadInfo struct {
 	downloading int
 	dst         string
 	size        int64
-	done        chan bool
+	done        chan error
 }
 
 type UserDownloadProtocol struct {
@@ -332,7 +333,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 						err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, i)
 					}
 				} else {
-					lib.Logger.Error("failed to read fragment:", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10)))
+					downloadInfo.done <- errors.New(fmt.Sprintf("failed to read fragment: %s", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10))))
 				}
 				return
 			}
@@ -340,7 +341,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		}
 		err = f.Truncate(downloadInfo.size)
 		if err != nil {
-			lib.Logger.Error("failed to truncate file:", targetFile)
+			downloadInfo.done <- errors.New(fmt.Sprintf("failed to truncate file: %s", targetFile))
 			f.Close()
 			os.Remove(targetFile)
 			return
@@ -350,26 +351,26 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
-			lib.Logger.Error("failed to open file:", targetFile)
+			downloadInfo.done <- errors.New(fmt.Sprintf("failed to open file: %s", targetFile))
 			return
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			lib.Logger.Error("failed to calculate file pubHash:", targetFile)
+			downloadInfo.done <- errors.New(fmt.Sprintf("failed to calculate file pubHash: %s", targetFile))
 			return
 		}
 		if hash != data.Hash {
-			lib.Logger.Error("pubHash is invalid:", targetFile)
+			downloadInfo.done <- errors.New(fmt.Sprintf("pubHash is invalid: %s", targetFile))
 			return
 		}
 		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
 		if err != nil {
 			err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
 			if err != nil {
-				lib.Logger.Error("failed to send confirm")
+				lib.Logger.Warn("failed to send confirm")
 			}
 		}
-		downloadInfo.done <- true
+		downloadInfo.done <- nil
 	} else {
 		downloadInfo.Lock()
 		downloadInfo.downloading++
@@ -377,21 +378,19 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		if data.PackageId == 0 {
 			err = os.Mkdir(path.Join(lib.DefaultTmpPath, data.Hash), 0700)
 			if err != nil && !os.IsExist(err) {
-				panic(err)
+				downloadInfo.done <- errors.New("failed to create storage directory")
 			}
 		}
 		filename := path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(data.PackageId, 10))
-		if _, err := os.Stat(filename); os.IsNotExist(err) {
-			f, err := os.Create(filename)
-			if err != nil {
-				lib.Logger.Error("failed to create file:", filename)
-			}
-			_, err = f.Write(data.Data)
-			if err != nil {
-				lib.Logger.Error("failed to write data to file:", filename)
-			}
-		} else {
-			lib.Logger.Error("file exists:", filename)
+		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			downloadInfo.done <- errors.New(fmt.Sprintf("failed to open file: %s", filename))
+			return
+		}
+		_, err = f.Write(data.Data)
+		if err != nil {
+			downloadInfo.done <- errors.New(fmt.Sprintf("failed to write data to file: %s", filename))
+			return
 		}
 		downloadInfo.Lock()
 		downloadInfo.downloading--
@@ -400,7 +399,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 }
 
 func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, hash string, size int64) error {
-	done := make(chan bool)
+	done := make(chan error)
 	p.node.downloadInfos.Lock()
 	p.node.downloadInfos.m[hash] = &userDownloadInfo{
 		dst:  dst,
@@ -424,11 +423,11 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, hash
 			return errors.New("failed to send download protocol")
 		}
 	}
-	<-done
+	err = <-done
 	p.node.downloadInfos.Lock()
 	delete(p.node.downloadInfos.m, hash)
 	p.node.downloadInfos.Unlock()
-	return nil
+	return err
 }
 
 func (p *UserDownloadProtocol) sendDownloadConfirm(peerId p2pPeer.ID, messageId, hash string, id int64) error {

@@ -72,7 +72,7 @@ func TestClient_GetINode(t *testing.T) {
 }
 
 func TestClient_CreateFile(t *testing.T) {
-	response, err := cli.CreateFile("./test/test.pub", "/SeaStorage", lib.DefaultDataShards, lib.DefaultParShards)
+	response, err := cli.CreateFile("/etc/hostname", "/SeaStorage", lib.DefaultDataShards, lib.DefaultParShards)
 	if err != nil {
 		t.Error(err)
 	}
@@ -81,12 +81,12 @@ func TestClient_CreateFile(t *testing.T) {
 }
 
 func TestClient_DownloadFiles(t *testing.T) {
-	cli.DownloadFiles("/SeaStorage/test.pub", "./test")
+	cli.DownloadFiles("/SeaStorage/hostname", "./test")
 	time.Sleep(5 * time.Second)
 }
 
 func TestClient_DeleteFile(t *testing.T) {
-	response, err := cli.DeleteFile("/SeaStorage/test.pub")
+	response, err := cli.DeleteFile("/SeaStorage/hostname")
 	if err != nil {
 		t.Error(err)
 	}
