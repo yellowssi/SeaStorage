@@ -184,7 +184,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if err != nil {
 		return nil, err
 	}
-	info, err := crypto.GenerateFileInfo(src, dataShards, parShards)
+	info, err := crypto.GenerateFileInfo(src, c.GetPublicKey(), dataShards, parShards)
 	if err != nil {
 		return nil, err
 	}

@@ -27,7 +27,7 @@ func init() {
 }
 
 // Generate the information of file for SeaStorage file system
-func GenerateFileInfo(target string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
+func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
 	// File Encrypt
 	inFile, err := os.Open(target)
 	if err != nil {
@@ -37,11 +37,15 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info tpStorage.
 	if err != nil {
 		return
 	}
+	keyAes := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
+	keyEncrypt, err := tpCrypto.Encryption(publicKey, tpCrypto.BytesToHex(keyAes))
+	if err != nil {
+		return
+	}
 	outFile, err := os.OpenFile(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return
 	}
-	keyAes := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
 	hash, err := EncryptFile(inFile, outFile, keyAes)
 	if err != nil {
 		return
@@ -83,7 +87,7 @@ func GenerateFileInfo(target string, dataShards, parShards int) (info tpStorage.
 		Name:      inFileInfo.Name(),
 		Size:      fileInfo.Size(),
 		Hash:      hash,
-		Key:       tpCrypto.BytesToHex(keyAes),
+		Key:       tpCrypto.BytesToHex(keyEncrypt),
 		Fragments: fragments,
 	}
 	return
