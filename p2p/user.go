@@ -85,13 +85,11 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	n.uploadInfos.m[tag] = uploadInfo
 	n.uploadInfos.Unlock()
 	go func(info *userUploadInfo) {
-		for {
-			info.Lock()
-			if len(info.operations) == 0 {
-				done <- true
-			}
-			info.Unlock()
+		uploadInfo.Lock()
+		if len(uploadInfo.operations) == 0 {
+			done <- true
 		}
+		uploadInfo.Unlock()
 	}(uploadInfo)
 	<-done
 	lib.Logger.WithFields(logrus.Fields{

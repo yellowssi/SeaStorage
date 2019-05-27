@@ -597,7 +597,11 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 				}
 				uploadInfo.Lock()
 				delete(uploadInfo.operations, s.Conn().RemotePeer())
+				length := len(uploadInfo.operations)
 				uploadInfo.Unlock()
+				if length == 0 {
+					uploadInfo.done <- true
+				}
 				return
 			}
 		}
