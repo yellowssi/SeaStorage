@@ -400,11 +400,13 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		return
 	}
 
+	p.node.operationsPayloads.Lock()
 	p.node.operationsPayloads.payloads[*op] = tpPayload.SeaStoragePayload{
 		Action:    tpPayload.SeaStoreFile,
 		Name:      p.node.Name,
 		Operation: *op,
 	}
+	p.node.operationsPayloads.Unlock()
 	delete(p.node.uploadInfos[s.Conn().RemotePeer()], data.Tag)
 }
 
