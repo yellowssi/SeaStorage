@@ -400,32 +400,11 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		return
 	}
 
-	resp, err := p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
+	p.node.operationsPayloads.payloads[*op] = tpPayload.SeaStoragePayload{
 		Action:    tpPayload.SeaStoreFile,
 		Name:      p.node.Name,
 		Operation: *op,
-	}}, lib.DefaultWait)
-	if err != nil {
-		resp, err = p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
-			Action:    tpPayload.SeaStoreFile,
-			Name:      p.node.Name,
-			Operation: *op,
-		}}, lib.DefaultWait)
-		if err != nil {
-			lib.Logger.WithFields(logrus.Fields{
-				"type": "operation request",
-				"from": s.Conn().RemotePeer().String(),
-				"tag":  data.Tag,
-			}).Error("failed to send transaction:", err)
-			return
-		}
 	}
-	lib.Logger.WithFields(logrus.Fields{
-		"type":     "operation request",
-		"from":     s.Conn().RemotePeer().String(),
-		"tag":      data.Tag,
-		"response": resp,
-	}).Info("send transaction success")
 	delete(p.node.uploadInfos[s.Conn().RemotePeer()], data.Tag)
 }
 

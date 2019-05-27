@@ -124,5 +124,4 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
-	lib.Logger.Info("Exit")
 }

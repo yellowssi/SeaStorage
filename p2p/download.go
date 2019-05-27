@@ -368,7 +368,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 		downloadInfo.Unlock()
 		if data.PackageId == 0 {
 			err = os.Mkdir(path.Join(lib.DefaultTmpPath, data.Hash), 0700)
-			if err != nil {
+			if err != nil && !os.IsExist(err) {
 				panic(err)
 			}
 		}
