@@ -18,7 +18,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 )
 
 type Client struct {
@@ -41,8 +40,6 @@ func (c *Client) SeaRegister() error {
 	if err != nil {
 		return err
 	}
-	lib.Logger.Info("waiting for transaction finish...")
-	time.Sleep(time.Minute)
 	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),

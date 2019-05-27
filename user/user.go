@@ -4,13 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
@@ -24,6 +17,11 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+	"sync"
 )
 
 type Client struct {
@@ -115,8 +113,6 @@ func (c *Client) UserRegister() error {
 	if err != nil {
 		return err
 	}
-	lib.Logger.Info("waiting for transaction finish...")
-	time.Sleep(time.Minute)
 	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),
