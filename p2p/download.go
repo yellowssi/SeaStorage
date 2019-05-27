@@ -102,18 +102,20 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 		return err
 	}
 	packages := int64(math.Ceil(float64(stat.Size()) / float64(lib.PackageSize)))
-	peerSrcs, ok := p.node.downloadInfos[peerId]
+	p.node.downloadInfos.Lock()
+	peerSrcs, ok := p.node.downloadInfos.m[peerId]
 	if ok {
 		peerSrcs[hash] = &seaDownloadInfo{
 			src:      src,
 			packages: packages,
 		}
 	} else {
-		p.node.downloadInfos[peerId] = map[string]*seaDownloadInfo{hash: {
+		p.node.downloadInfos.m[peerId] = map[string]*seaDownloadInfo{hash: {
 			src:      src,
 			packages: packages,
 		}}
 	}
+	p.node.downloadInfos.Unlock()
 	for i := int64(0); i <= packages; i++ {
 		err := p.sendPackage(peerId, messageId, peerPub, hash, i)
 		if err != nil {
@@ -125,7 +127,9 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 
 func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
-	uploadInfo := p.node.downloadInfos[peerId][hash]
+	p.node.downloadInfos.Lock()
+	uploadInfo := p.node.downloadInfos.m[peerId][hash]
+	p.node.downloadInfos.Unlock()
 	if id == uploadInfo.packages {
 		req = &pb.DownloadResponse{
 			MessageData: p.node.NewMessageData(messageId, true),
@@ -204,7 +208,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 		return
 	}
 
-	downloadInfo, ok := p.node.downloadInfos[s.Conn().RemotePeer()][data.Hash]
+	p.node.downloadInfos.Lock()
+	downloadInfo, ok := p.node.downloadInfos.m[s.Conn().RemotePeer()][data.Hash]
+	p.node.downloadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
@@ -215,7 +221,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
 	}
 
 	if data.PackageId == downloadInfo.packages {
-		delete(p.node.downloadInfos[s.Conn().RemotePeer()], data.Hash)
+		p.node.downloadInfos.Lock()
+		delete(p.node.downloadInfos.m[s.Conn().RemotePeer()], data.Hash)
+		p.node.downloadInfos.Unlock()
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload confirm",
 			"from": s.Conn().RemotePeer(),

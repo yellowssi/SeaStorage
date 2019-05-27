@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"sync"
+	"time"
 
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pHost "github.com/libp2p/go-libp2p-host"
@@ -84,9 +85,17 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	n.uploadInfos.Lock()
 	n.uploadInfos.m[tag] = uploadInfo
 	n.uploadInfos.Unlock()
-	if len(uploadInfo.operations) > 0 {
-		<-done
-	}
+	go func(info *userUploadInfo) {
+		for {
+			time.Sleep(time.Second)
+			info.Lock()
+			if len(info.operations) == 0 {
+				done <- true
+			}
+			info.Unlock()
+		}
+	}(uploadInfo)
+	<-done
 	lib.Logger.WithFields(logrus.Fields{
 		"tag": tag,
 	}).Info("fragment upload finish")

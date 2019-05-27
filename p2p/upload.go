@@ -105,12 +105,14 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 	resp.MessageData.Sign = signature
 	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
 	if ok {
-		uploadInfos, ok := p.node.uploadInfos[s.Conn().RemotePeer()]
+		p.node.uploadInfos.Lock()
+		uploadInfos, ok := p.node.uploadInfos.m[s.Conn().RemotePeer()]
 		if !ok {
-			p.node.uploadInfos[s.Conn().RemotePeer()] = map[string]*seaUploadInfo{data.Tag: {query: data}}
+			p.node.uploadInfos.m[s.Conn().RemotePeer()] = map[string]*seaUploadInfo{data.Tag: {query: data}}
 		} else {
 			uploadInfos[data.Tag] = &seaUploadInfo{query: data}
 		}
+		p.node.uploadInfos.Unlock()
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
 			"to":   s.Conn().RemotePeer().String(),
@@ -168,7 +170,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		return
 	}
 
-	uploadInfoMap, ok := p.node.uploadInfos[s.Conn().RemotePeer()]
+	p.node.uploadInfos.Lock()
+	uploadInfoMap, ok := p.node.uploadInfos.m[s.Conn().RemotePeer()]
+	p.node.uploadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
@@ -177,7 +181,9 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		}).Warn("invalid upload request")
 		return
 	}
+	p.node.uploadInfos.Lock()
 	uploadInfo, ok := uploadInfoMap[data.Tag]
+	p.node.uploadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload request",
@@ -360,7 +366,9 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		return
 	}
 
-	uploadInfo, ok := p.node.uploadInfos[s.Conn().RemotePeer()][data.Tag]
+	p.node.uploadInfos.Lock()
+	uploadInfo, ok := p.node.uploadInfos.m[s.Conn().RemotePeer()][data.Tag]
+	p.node.uploadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
@@ -402,7 +410,9 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 	p.node.operations.Lock()
 	p.node.operations.m[tpCrypto.SHA512HexFromBytes(op.ToBytes())] = *op
 	p.node.operations.Unlock()
-	delete(p.node.uploadInfos[s.Conn().RemotePeer()], data.Tag)
+	p.node.uploadInfos.Lock()
+	delete(p.node.uploadInfos.m[s.Conn().RemotePeer()], data.Tag)
+	p.node.uploadInfos.Unlock()
 }
 
 /*
@@ -570,7 +580,9 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 			}).Info("send upload request success")
 			return
 		} else if data.PackageId == uploadInfo.packages {
+			uploadInfo.Lock()
 			operation, ok := uploadInfo.operations[s.Conn().RemotePeer()]
+			uploadInfo.Unlock()
 			if ok && data.Hash == operation.Hash {
 				err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 				if err != nil {
@@ -583,10 +595,9 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 						}).Warn("failed to send operation request")
 					}
 				}
+				uploadInfo.Lock()
 				delete(uploadInfo.operations, s.Conn().RemotePeer())
-				if len(uploadInfo.operations) == 0 {
-					uploadInfo.done <- true
-				}
+				uploadInfo.Unlock()
 				return
 			}
 		}
@@ -613,7 +624,14 @@ func (p *UserUploadProtocol) sendUpload(peerId p2pPeer.ID, messageId, tag string
 	for i := int64(0); i <= uploadInfo.packages; i++ {
 		err := p.node.sendPackage(peerId, messageId, tag, i)
 		if err != nil {
-			_ = p.node.sendPackage(peerId, messageId, tag, i)
+			err = p.node.sendPackage(peerId, messageId, tag, i)
+			if err != nil {
+				lib.Logger.WithFields(logrus.Fields{
+					"to":      peerId.String(),
+					"tag":     tag,
+					"package": i,
+				}).Warn("failed to sent package")
+			}
 		}
 	}
 }

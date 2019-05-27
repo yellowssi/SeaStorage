@@ -24,8 +24,14 @@ type SeaNode struct {
 		sync.RWMutex
 		m map[string]tpUser.Operation
 	}
-	uploadInfos   map[p2pPeer.ID]map[string]*seaUploadInfo
-	downloadInfos map[p2pPeer.ID]map[string]*seaDownloadInfo
+	uploadInfos struct {
+		sync.RWMutex
+		m map[p2pPeer.ID]map[string]*seaUploadInfo
+	}
+	downloadInfos struct {
+		sync.RWMutex
+		m map[p2pPeer.ID]map[string]*seaDownloadInfo
+	}
 	*Node
 	*SeaUploadQueryProtocol
 	*SeaUploadProtocol
@@ -61,8 +67,14 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 			sync.RWMutex
 			m map[string]tpUser.Operation
 		}{m: make(map[string]tpUser.Operation)},
-		uploadInfos:   make(map[p2pPeer.ID]map[string]*seaUploadInfo),
-		downloadInfos: make(map[p2pPeer.ID]map[string]*seaDownloadInfo),
+		uploadInfos: struct {
+			sync.RWMutex
+			m map[p2pPeer.ID]map[string]*seaUploadInfo
+		}{m: make(map[p2pPeer.ID]map[string]*seaUploadInfo)},
+		downloadInfos: struct {
+			sync.RWMutex
+			m map[p2pPeer.ID]map[string]*seaDownloadInfo
+		}{m: make(map[p2pPeer.ID]map[string]*seaDownloadInfo)},
 	}
 	seaNode.SeaUploadQueryProtocol = NewSeaUploadQueryProtocol(seaNode)
 	seaNode.SeaUploadProtocol = NewSeaUploadProtocol(seaNode)
