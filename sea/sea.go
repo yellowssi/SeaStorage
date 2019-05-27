@@ -3,13 +3,6 @@ package sea
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
-
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
@@ -20,6 +13,12 @@ import (
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 )
 
 type Client struct {
@@ -42,16 +41,14 @@ func (c *Client) SeaRegister() error {
 	if err != nil {
 		return err
 	}
+	lib.Logger.Info("waiting for transaction finish...")
+	time.Sleep(time.Minute)
 	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),
 		"address":    c.GetAddress(),
 	}).Info("sea register success")
-	go func() {
-		time.Sleep(time.Minute)
-		c.Sync()
-	}()
-	return nil
+	return c.Sync()
 }
 
 func (c *Client) Sync() error {

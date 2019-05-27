@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
@@ -114,6 +115,8 @@ func (c *Client) UserRegister() error {
 	if err != nil {
 		return err
 	}
+	lib.Logger.Info("waiting for transaction finish...")
+	time.Sleep(time.Minute)
 	lib.Logger.WithFields(logrus.Fields{
 		"name":       c.Name,
 		"public key": c.GetPublicKey(),
