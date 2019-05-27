@@ -53,9 +53,9 @@ var (
 	DefaultStoragePath    string
 	DefaultLogPath        string
 	DefaultBootstrapAddrs = []string{
-		//"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
-		//"/ip4/101.132.168.252/tcp/5001/p2p/16Uiu2HAmHoT7LJpqYhZfLddG6Gu7WBkHh44cMiGp1FgCjPjbhEkA",
-		"/ip4/192.168.31.99/tcp/5001/p2p/16Uiu2HAm2Ckrip9389C25mrcMrMRDxeasADmd2sGgcLBbgfTD8F2",
+		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
+		"/ip4/101.132.168.252/tcp/5001/p2p/16Uiu2HAmHoT7LJpqYhZfLddG6Gu7WBkHh44cMiGp1FgCjPjbhEkA",
+		//"/ip4/192.168.31.99/tcp/5001/p2p/16Uiu2HAm2Ckrip9389C25mrcMrMRDxeasADmd2sGgcLBbgfTD8F2",
 	}
 )
 
