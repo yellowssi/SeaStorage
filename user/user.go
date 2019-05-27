@@ -345,7 +345,7 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	}
 	outFile, err := os.OpenFile(path.Join(lib.DefaultTmpPath, f.Hash, f.Name+".enc"), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to open file:", err)
 		return
 	}
 	hashes := make([]string, len(f.Fragments))
@@ -354,13 +354,13 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	}
 	err = crypto.MergeFile(path.Join(lib.DefaultTmpPath, f.Hash), hashes, outFile, int(f.Size), lib.DefaultDataShards, lib.DefaultParShards)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to merge file:", err)
 		return
 	}
 	if _, err := os.Stat(dst); os.IsNotExist(err) {
 		err := os.MkdirAll(dst, 0755)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("failed to create the destination directory:", err)
 			return
 		}
 	}
@@ -371,12 +371,12 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	defer dstFile.Close()
 	key, err := c.DecryptFileKey(c.User.Root.Keys[f.KeyIndex].Key)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to decrypt file key:", err)
 		return
 	}
 	hash, err := crypto.DecryptFile(inFile, dstFile, key)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to decrypt file:", err)
 		return
 	}
 	if f.Hash != hash {
