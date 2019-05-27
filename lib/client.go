@@ -126,8 +126,14 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		outputs := []string{address}
 
 		if seaStoragePayload.Action == tpPayload.SeaStoreFile {
-			inputs = append(inputs, seaStoragePayload.Operation.Address)
-			outputs = append(outputs, seaStoragePayload.Operation.Address)
+			addresses := make(map[string]string)
+			for _, operation := range seaStoragePayload.Operations {
+				addresses[tpCrypto.SHA512HexFromHex(operation.Address)] = operation.Address
+			}
+			for _, address := range addresses {
+				inputs = append(inputs, address)
+				outputs = append(outputs, address)
+			}
 		}
 
 		// Construct TransactionHeader

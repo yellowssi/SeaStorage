@@ -15,7 +15,6 @@ import (
 	p2pPeer "github.com/libp2p/go-libp2p-peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
@@ -400,32 +399,9 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		return
 	}
 
-	resp, err := p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
-		Action:    tpPayload.SeaStoreFile,
-		Name:      p.node.Name,
-		Operation: *op,
-	}}, lib.DefaultWait)
-	if err != nil {
-		resp, err = p.node.SendTransaction([]tpPayload.SeaStoragePayload{{
-			Action:    tpPayload.SeaStoreFile,
-			Name:      p.node.Name,
-			Operation: *op,
-		}}, lib.DefaultWait)
-		if err != nil {
-			lib.Logger.WithFields(logrus.Fields{
-				"type": "operation request",
-				"from": s.Conn().RemotePeer().String(),
-				"tag":  data.Tag,
-			}).Error("failed to send transaction:", err)
-			return
-		}
-	}
-	lib.Logger.WithFields(logrus.Fields{
-		"type":     "operation request",
-		"from":     s.Conn().RemotePeer().String(),
-		"tag":      data.Tag,
-		"response": resp,
-	}).Info("send transaction success")
+	p.node.operations.Lock()
+	p.node.operations.m[tpCrypto.SHA512HexFromBytes(op.ToBytes())] = *op
+	p.node.operations.Unlock()
 	delete(p.node.uploadInfos[s.Conn().RemotePeer()], data.Tag)
 }
 
