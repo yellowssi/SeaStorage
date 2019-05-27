@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"sync"
-	"time"
 
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pHost "github.com/libp2p/go-libp2p-core/host"
@@ -87,7 +86,6 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	n.uploadInfos.Unlock()
 	go func(info *userUploadInfo) {
 		for {
-			time.Sleep(time.Second)
 			info.Lock()
 			if len(info.operations) == 0 {
 				done <- true

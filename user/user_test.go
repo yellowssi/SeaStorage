@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
@@ -19,14 +20,25 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
 	lib.GenerateKey("test", "test")
-	//lib.TPURL = lib.DefaultTPURL
-	lib.TPURL = "http://127.0.0.1:8008"
-	//lib.ListenAddress = lib.DefaultListenAddress
-	lib.ListenAddress = "192.168.31.200"
+	lib.TPURL = lib.DefaultTPURL
+	lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
+	InitAddrs(lib.DefaultBootstrapAddrs)
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
 		panic(err)
+	}
+}
+
+func InitAddrs(bootstrapAddrs []string) {
+	for _, addr := range bootstrapAddrs {
+		multiaddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			lib.Logger.WithFields(logrus.Fields{
+				"peer": addr,
+			}).Warn("failed to init peer addr")
+		}
+		lib.BootstrapAddrs = append(lib.BootstrapAddrs, multiaddr)
 	}
 }
 
@@ -65,7 +77,7 @@ func TestClient_CreateFile(t *testing.T) {
 		t.Error(err)
 	}
 	t.Log(response)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Minute)
 }
 
 func TestClient_DownloadFiles(t *testing.T) {
