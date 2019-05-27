@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
@@ -46,7 +47,11 @@ func (c *Client) SeaRegister() error {
 		"public key": c.GetPublicKey(),
 		"address":    c.GetAddress(),
 	}).Info("sea register success")
-	return c.Sync()
+	go func() {
+		time.Sleep(time.Minute)
+		c.Sync()
+	}()
+	return nil
 }
 
 func (c *Client) Sync() error {
