@@ -386,6 +386,7 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 	}
 }
 
+// Public keys of the files in the path
 func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
@@ -393,50 +394,65 @@ func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 	}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		payload, err := c.publicFileKey(iNode.(*tpStorage.File))
+		key, err := c.publicFileKey(iNode.(*tpStorage.File))
 		if err != nil {
 			return nil, err
 		}
-		return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+		return c.SendTransaction([]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublicKey, Key: key}}, lib.DefaultWait)
 	case *tpStorage.Directory:
-		payloads, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
+		payloadMap, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
 		if err != nil {
 			return nil, err
+		}
+		payloads := make([]tpPayload.SeaStoragePayload, 0)
+		for _, payload := range payloadMap {
+			payloads = append(payloads, payload)
 		}
 		return c.SendTransaction(payloads, lib.DefaultWait)
 	}
 	return nil, errors.New("failed to public key")
 }
 
-func (c *Client) publicDirectoryKey(dir *tpStorage.Directory) ([]tpPayload.SeaStoragePayload, error) {
-	payloads := make([]tpPayload.SeaStoragePayload, 0)
+// Public keys of the files in the directory
+func (c *Client) publicDirectoryKey(dir *tpStorage.Directory) (map[string]tpPayload.SeaStoragePayload, error) {
+	payloads := make(map[string]tpPayload.SeaStoragePayload)
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
 		case *tpStorage.File:
-			payload, err := c.publicFileKey(iNode.(*tpStorage.File))
+			key, err := c.publicFileKey(iNode.(*tpStorage.File))
 			if err != nil {
 				return nil, err
 			}
-			payloads = append(payloads, payload)
+			_, ok := payloads[key]
+			if !ok {
+				payloads[key] = tpPayload.SeaStoragePayload{Action: tpPayload.UserPublicKey, Key: key}
+			}
 		case *tpStorage.Directory:
 			subPayloads, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
 			if err != nil {
 				return nil, err
 			}
-			payloads = append(payloads, subPayloads...)
+			for key, payload := range subPayloads {
+				_, ok := payloads[key]
+				if !ok {
+					payloads[key] = payload
+				}
+			}
 		}
 	}
 	return payloads, nil
 }
 
-func (c *Client) publicFileKey(file *tpStorage.File) (payload tpPayload.SeaStoragePayload, err error) {
-	key, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
+// Public key of the file
+func (c *Client) publicFileKey(file *tpStorage.File) (key string, err error) {
+	keyBytes, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
 	if err != nil {
 		return
 	}
-	err = c.User.Root.PublicKey(c.GetPublicKey(), tpCrypto.BytesToHex(key))
+	key = tpCrypto.BytesToHex(keyBytes)
+	err = c.User.Root.PublicKey(c.GetPublicKey(), key)
 	if err != nil {
 		return
 	}
-	return tpPayload.SeaStoragePayload{Action: tpPayload.UserPublicKey}, nil
+	return key, nil
 }
