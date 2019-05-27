@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+	"sync"
+
 	"github.com/libp2p/go-libp2p"
-	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
-	p2pPeerStore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
@@ -17,11 +23,6 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
-	"sync"
 )
 
 type Client struct {
@@ -71,7 +72,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	}
 	var wg sync.WaitGroup
 	for _, addr := range bootstrapAddrs {
-		peerInfo, err := p2pPeerStore.InfoFromP2pAddr(addr)
+		peerInfo, err := p2pPeer.AddrInfoFromP2pAddr(addr)
 		if err != nil {
 			lib.Logger.WithFields(logrus.Fields{
 				"peer": addr,
@@ -79,7 +80,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 			continue
 		}
 		wg.Add(1)
-		go func(info p2pPeerStore.PeerInfo) {
+		go func(info p2pPeer.AddrInfo) {
 			defer wg.Done()
 			err = host.Connect(ctx, info)
 			if err != nil {

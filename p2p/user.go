@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
-	p2pHost "github.com/libp2p/go-libp2p-host"
-	p2pPeer "github.com/libp2p/go-libp2p-peer"
+	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pHost "github.com/libp2p/go-libp2p-core/host"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"

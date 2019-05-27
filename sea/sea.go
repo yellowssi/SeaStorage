@@ -3,21 +3,22 @@ package sea
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"github.com/libp2p/go-libp2p"
-	p2pCrypto "github.com/libp2p/go-libp2p-crypto"
+	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
-	p2pPeerstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
 )
 
 type Client struct {
@@ -95,7 +96,7 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 	}
 	var wg sync.WaitGroup
 	for _, addr := range bootstrapAddrs {
-		peerInfo, err := p2pPeerstore.InfoFromP2pAddr(addr)
+		peerInfo, err := p2pPeer.AddrInfoFromP2pAddr(addr)
 		if err != nil {
 			lib.Logger.WithFields(logrus.Fields{
 				"peer": addr,
@@ -103,15 +104,15 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 			continue
 		}
 		wg.Add(1)
-		go func() {
+		go func(info p2pPeer.AddrInfo) {
 			defer wg.Done()
-			err = host.Connect(ctx, *peerInfo)
+			err = host.Connect(ctx, info)
 			if err != nil {
 				lib.Logger.WithFields(logrus.Fields{
 					"peer": peerInfo,
 				}).Warn("failed to connect peer:", err)
 			}
-		}()
+		}(*peerInfo)
 	}
 	wg.Wait()
 	lib.Logger.WithFields(logrus.Fields{

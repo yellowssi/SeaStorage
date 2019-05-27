@@ -12,8 +12,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
+	p2pNet "github.com/libp2p/go-libp2p-core/network"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	"gitlab.com/SeaStorage/SeaStorage/crypto"
@@ -44,7 +44,7 @@ func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	return p
 }
 
-func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
+func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 	data := &pb.DownloadRequest{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -91,7 +91,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s inet.Stream) {
 	}
 }
 
-func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, hash string) error {
+func (p *SeaDownloadProtocol) sendDownload(peerId p2pPeer.ID, messageId, peerPub, hash string) error {
 	filename := path.Join(p.node.storagePath, peerPub, hash)
 	src, err := os.Open(filename)
 	if err != nil {
@@ -125,7 +125,7 @@ func (p *SeaDownloadProtocol) sendDownload(peerId peer.ID, messageId, peerPub, h
 	return err
 }
 
-func (p *SeaDownloadProtocol) sendPackage(peerId peer.ID, messageId, peerPub, hash string, id int64) error {
+func (p *SeaDownloadProtocol) sendPackage(peerId p2pPeer.ID, messageId, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
 	p.node.downloadInfos.Lock()
 	uploadInfo := p.node.downloadInfos.m[peerId][hash]
@@ -177,7 +177,7 @@ func NewSeaDownloadConfirmProtocol(node *SeaNode) *SeaDownloadConfirmProtocol {
 	return p
 }
 
-func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s inet.Stream) {
+func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 	data := &pb.DownloadConfirm{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -262,7 +262,7 @@ func NewUserDownloadProtocol(node *UserNode) *UserDownloadProtocol {
 	return d
 }
 
-func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
+func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 	data := &pb.DownloadResponse{}
 	buf, err := ioutil.ReadAll(s)
 	if err != nil {
@@ -399,7 +399,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s inet.Stream) {
 	}
 }
 
-func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash string, size int64) error {
+func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, hash string, size int64) error {
 	done := make(chan bool)
 	p.node.downloadInfos.Lock()
 	p.node.downloadInfos.m[hash] = &userDownloadInfo{
@@ -431,7 +431,7 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId peer.ID, dst, hash st
 	return nil
 }
 
-func (p *UserDownloadProtocol) sendDownloadConfirm(peerId peer.ID, messageId, hash string, id int64) error {
+func (p *UserDownloadProtocol) sendDownloadConfirm(peerId p2pPeer.ID, messageId, hash string, id int64) error {
 	req := &pb.DownloadConfirm{
 		MessageData: p.node.NewMessageData(messageId, true),
 		Hash:        hash,

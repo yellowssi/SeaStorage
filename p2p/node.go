@@ -7,20 +7,20 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
-	crypto "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
-	inet "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	protocol "github.com/libp2p/go-libp2p-protocol"
+	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pHelpers "github.com/libp2p/go-libp2p-core/helpers"
+	p2pHost "github.com/libp2p/go-libp2p-core/host"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
+	p2pProtocol "github.com/libp2p/go-libp2p-core/protocol"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 )
 
 type Node struct {
-	host.Host
+	p2pHost.Host
 }
 
-func NewNode(host host.Host) *Node {
+func NewNode(host p2pHost.Host) *Node {
 	return &Node{Host: host}
 }
 
@@ -43,14 +43,14 @@ func (n *Node) authenticateMessage(message proto.Message, data *pb.MessageData) 
 	// restore sig in message data (for possible future use)
 	data.Sign = sign
 
-	// restore peer id binary format from base58 encoded node id data
-	peerId, err := peer.IDHexDecode(data.NodeId)
+	// restore p2pPeer id binary format from base58 encoded node id data
+	peerId, err := p2pPeer.IDHexDecode(data.NodeId)
 	if err != nil {
 		log.Println(err, "Failed to decode node id from base58")
 		return false
 	}
 
-	// verify the data was authored by the signing peer identified by the public key
+	// verify the data was authored by the signing p2pPeer identified by the public key
 	// and signature included in the message
 	return n.verifyData(bin, []byte(sign), peerId, data.NodePubKey)
 }
@@ -74,20 +74,20 @@ func (n *Node) signData(data []byte) ([]byte, error) {
 // Verify incoming p2p message data integrity
 // data: data to verify
 // signature: author signature provided in the message payload
-// peerId: author peer id from the message payload
+// peerId: author p2pPeer id from the message payload
 // pubKeyData: author public key from the message payload
-func (n *Node) verifyData(data []byte, signature []byte, peerId peer.ID, pubKeyData []byte) bool {
-	key, err := crypto.UnmarshalPublicKey(pubKeyData)
+func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubKeyData []byte) bool {
+	key, err := p2pCrypto.UnmarshalPublicKey(pubKeyData)
 	if err != nil {
 		log.Println(err, "Failed to extract key from message key data")
 		return false
 	}
 
 	// extract node id from the provided public key
-	idFromKey, err := peer.IDFromPublicKey(key)
+	idFromKey, err := p2pPeer.IDFromPublicKey(key)
 
 	if err != nil {
-		log.Println(err, "Failed to extract peer id from public key")
+		log.Println(err, "Failed to extract p2pPeer id from public key")
 		return false
 	}
 
@@ -114,12 +114,12 @@ func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 	nodePubKey, err := n.Peerstore().PubKey(n.ID()).Bytes()
 
 	if err != nil {
-		panic("Failed to get public key for sender from local peer store.")
+		panic("Failed to get public key for sender from local p2pPeer store.")
 	}
 
 	return &pb.MessageData{
 		ClientVersion: lib.FamilyName + "/" + lib.FamilyVersion,
-		NodeId:        peer.IDHexEncode(n.ID()),
+		NodeId:        p2pPeer.IDHexEncode(n.ID()),
 		NodePubKey:    nodePubKey,
 		Timestamp:     time.Now().Unix(),
 		Id:            messageId,
@@ -130,7 +130,7 @@ func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 // helper method - writes a protobuf go data object to a network stream
 // data: reference of protobuf go data object to send (not the object itself)
 // s: network stream to write the data to
-func (n *Node) sendProtoMessage(id peer.ID, p protocol.ID, data proto.Message) bool {
+func (n *Node) sendProtoMessage(id p2pPeer.ID, p p2pProtocol.ID, data proto.Message) bool {
 	s, err := n.NewStream(context.Background(), id, p)
 	if err != nil {
 		log.Println(err)
@@ -144,7 +144,7 @@ func (n *Node) sendProtoMessage(id peer.ID, p protocol.ID, data proto.Message) b
 		return false
 	}
 	// FullClose closes the stream and waits for the other side to close their half.
-	err = inet.FullClose(s)
+	err = p2pHelpers.FullClose(s)
 	if err != nil {
 		log.Println(err)
 		s.Reset()

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	p2pHost "github.com/libp2p/go-libp2p-host"
-	p2pPeer "github.com/libp2p/go-libp2p-peer"
+	p2pHost "github.com/libp2p/go-libp2p-core/host"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
 	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"

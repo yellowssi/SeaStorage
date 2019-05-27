@@ -26,6 +26,7 @@ func init() {
 	}
 }
 
+// Generate the information of file for SeaStorage file system
 func GenerateFileInfo(target string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
 	// File Encrypt
 	inFile, err := os.Open(target)
@@ -160,6 +161,7 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 	return
 }
 
+// Reed-solomon Erasure Coding Split File
 func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hashes []string, fragmentSize int64, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -231,6 +233,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	return
 }
 
+// Reed-solomon Erasure Coding Merge File
 func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, dataShards, parShards int) error {
 	if len(hashes) != dataShards+parShards {
 		return errors.New("the length of hash is not equal to shards")
@@ -311,6 +314,7 @@ func openInput(inPath string, hashes []string, dataShards, parShards int) (r []i
 	return shards, size, nil
 }
 
+// Calculate the hash of file
 func CalFileHash(f *os.File) (hash string, err error) {
 	info, err := f.Stat()
 	if err != nil {

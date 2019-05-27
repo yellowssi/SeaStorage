@@ -11,8 +11,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/uuid"
-	p2pNet "github.com/libp2p/go-libp2p-net"
-	p2pPeer "github.com/libp2p/go-libp2p-peer"
+	p2pNet "github.com/libp2p/go-libp2p-core/network"
+	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
