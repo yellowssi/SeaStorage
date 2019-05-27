@@ -89,6 +89,7 @@ func (s *SeaNode) SendOperations() {
 			}
 			s.operations.Unlock()
 			payload := tpPayload.SeaStoragePayload{
+				Name:       s.Name,
 				Action:     tpPayload.SeaStoreFile,
 				Operations: operations,
 			}
