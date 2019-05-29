@@ -149,12 +149,20 @@ func (c *Client) GetSize() int64 {
 	return c.User.Root.Home.Size
 }
 
-// Get iNode of the path
+// Get iNode of the path in home directory
 func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 	pathParams := strings.Split(c.fixPath(p), "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
 	return c.User.Root.GetINode(p, name)
+}
+
+// Get iNode of the path in shared directory
+func (c *Client) GetSharedINode(p string) (tpStorage.INode, error) {
+	pathParams := strings.Split(c.fixPath(p), "/")
+	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	return c.User.Root.GetSharedINode(p, name)
 }
 
 // TODO: Create Directory & Create All Directory
@@ -348,7 +356,7 @@ func (c *Client) DownloadFiles(p, dst string) {
 }
 
 // Download the shared file of owner in the path into the dst path in the system
-func (c *Client) DownloadSharedFiles(owner, p, dst string) {
+func (c *Client) DownloadSharedFiles(p, dst, owner string) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
 		fmt.Println(err)

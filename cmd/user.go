@@ -45,8 +45,11 @@ var userCommands = []string{
 	"public",
 	"public-key",
 	"ls",
+	"ls-shared",
 	"get",
+	"get-shared",
 	"download",
+	"download-shared",
 	"exit",
 }
 
@@ -143,6 +146,20 @@ communicating with the transaction processor.`,
 					err = errors.New("invalid path")
 				} else {
 					iNodes, err = cli.ListDirectory(commands[1])
+				}
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					printINodeInfo(iNodes)
+				}
+			case "ls-shared":
+				var iNodes []tpStorage.INodeInfo
+				if len(commands) == 1 {
+					iNodes, err = cli.ListSharedDirectory(cli.PWD)
+				} else if len(commands) > 2 {
+					err = errors.New("invalid path")
+				} else {
+					iNodes, err = cli.ListSharedDirectory(commands[1])
 				}
 				if err != nil {
 					fmt.Println(err)
@@ -254,6 +271,19 @@ communicating with the transaction processor.`,
 						printINode(iNode)
 					}
 				}
+			case "get-shared":
+				if len(commands) < 2 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 2 {
+					fmt.Println(invalidPathError)
+				} else {
+					iNode, err := cli.GetSharedINode(commands[1])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printINode(iNode)
+					}
+				}
 			case "download":
 				if len(commands) < 3 {
 					fmt.Println(missingOperandError)
@@ -261,6 +291,18 @@ communicating with the transaction processor.`,
 					fmt.Println(invalidPathError)
 				} else {
 					cli.DownloadFiles(commands[1], commands[2])
+				}
+			case "download-shared":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 4 {
+					fmt.Println(invalidPathError)
+				} else {
+					owner := ""
+					if len(commands) == 4 {
+						owner = commands[3]
+					}
+					cli.DownloadSharedFiles(commands[1], commands[2], owner)
 				}
 			case "public-key":
 				if len(commands) < 2 {
