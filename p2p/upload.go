@@ -101,8 +101,8 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 		}
 	}
 
-	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "share")); os.IsNotExist(err) {
-		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "share"), 0700)
+	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "shared")); os.IsNotExist(err) {
+		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "shared"), 0700)
 		if err != nil {
 			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "home"))
 			return

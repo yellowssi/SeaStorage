@@ -253,9 +253,14 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 	lib.Logger.WithFields(logrus.Fields{}).Info("file upload finish")
 }
 
-// List directory infos in the path
+// List directory infos in the path of home directory
 func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	return c.User.Root.ListDirectory(c.fixPath(p))
+}
+
+// List directory infos in the path of shared directory
+func (c *Client) ListSharedDirectory(p string) ([]tpStorage.INodeInfo, error) {
+	return c.User.Root.ListSharedDirectory(c.fixPath(p))
 }
 
 // Delete the directory of the path
