@@ -125,8 +125,10 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")
 	go func() {
-		time.Sleep(time.Minute)
-		c.ConfirmSeaOperations()
+		for {
+			time.Sleep(time.Minute)
+			c.ConfirmSeaOperations()
+		}
 	}()
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
