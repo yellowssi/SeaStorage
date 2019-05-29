@@ -20,7 +20,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.4
 	github.com/spf13/viper v1.4.0
-	gitlab.com/SeaStorage/SeaStorage-TP v1.2.7
+	gitlab.com/SeaStorage/SeaStorage-TP v1.2.0
 	golang.org/x/sys v0.0.0-20190529130038-5219a1e1c5f8 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20190529010454-aa71c3f32488 // indirect
