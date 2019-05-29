@@ -145,6 +145,7 @@ func (c *Client) ConfirmSeaOperations() {
 		operations := make([]tpSea.Operation, 0)
 		for _, operation := range c.Sea.Operations {
 			target := path.Join(lib.StoragePath, operation.Owner)
+			operations = append(operations, operation)
 			switch operation.Action {
 			case tpSea.ActionUserDelete:
 				if operation.Shared {
@@ -155,8 +156,6 @@ func (c *Client) ConfirmSeaOperations() {
 				err := os.Remove(target)
 				if err != nil {
 					lib.Logger.Error("failed to remove file: ", target)
-				} else {
-					operations = append(operations, operation)
 				}
 			case tpSea.ActionUserShared:
 				src := path.Join(target, "home", operation.Hash)
@@ -164,17 +163,11 @@ func (c *Client) ConfirmSeaOperations() {
 				err := lib.Copy(src, dst)
 				if err != nil {
 					lib.Logger.WithFields(logrus.Fields{"src": src, "dst": dst}).Error("failed to copy file:", err)
-				} else {
-					operations = append(operations, operation)
 				}
 			case tpSea.ActionGroupDelete:
 				// TODO: Group Action
 			case tpSea.ActionGroupShared:
 			}
-		}
-		if len(operations) == 0 {
-			lib.Logger.WithFields(logrus.Fields{"operations": c.Sea.Operations}).Warn("failed to confirm operation")
-			return
 		}
 		response, err := c.sendSeaOperations(operations)
 		if err != nil {

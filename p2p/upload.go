@@ -403,12 +403,13 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		}).Warn("failed to unmarshal:", err)
 		return
 	}
-	if !op.Verify() || op.Hash != uploadInfo.hash {
+
+	if !op.Verify() || op.PublicKey != tpCrypto.BytesToHex(data.MessageData.NodePubKey) || op.Hash != uploadInfo.hash {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("failed to authenticate")
+		}).Warn("invalid operation")
 		return
 	}
 
