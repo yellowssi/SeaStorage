@@ -126,7 +126,7 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 	fmt.Println("Enter Ctrl+C to stop")
 	go func() {
 		for {
-			time.Sleep(time.Minute)
+			time.Sleep(time.Second)
 			c.ConfirmSeaOperations()
 		}
 	}()

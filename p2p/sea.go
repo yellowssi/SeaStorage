@@ -87,7 +87,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 
 func (s *SeaNode) SendUserOperations() {
 	for {
-		time.Sleep(time.Minute)
+		time.Sleep(time.Second)
 		s.operations.Lock()
 		length := len(s.operations.m)
 		s.operations.Unlock()
