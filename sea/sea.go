@@ -134,7 +134,6 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 }
 
 func (c *Client) ConfirmSeaOperations() {
-	lib.Logger.Info("start to confirm operations")
 	err := c.Sync()
 	if err != nil {
 		lib.Logger.Error("failed to sync:", err)
