@@ -262,7 +262,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
-	err := c.User.Root.DeleteDirectory(p, name)
+	_, err := c.User.Root.DeleteDirectory(p, name, true)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +270,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 		Action: tpPayload.UserDeleteDirectory,
 		Name:   c.Name,
 		PWD:    p,
-		Target: name,
+		Target: []string{name},
 	}}, lib.DefaultWait)
 	return response, err
 }
@@ -281,7 +281,7 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
-	err := c.User.Root.DeleteFile(p, name)
+	_, err := c.User.Root.DeleteFile(p, name, true)
 	if err != nil {
 		return nil, err
 	}
@@ -289,9 +289,28 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 		Action: tpPayload.UserDeleteFile,
 		Name:   c.Name,
 		PWD:    p,
-		Target: name,
+		Target: []string{name},
 	}}, lib.DefaultWait)
 	return response, err
+}
+
+// Move file or directory to new path
+func (c *Client) Move(src, dst string) (map[string]interface{}, error) {
+	src = c.fixPath(src)
+	dst = c.fixPath(dst)
+	pathParams := strings.Split(src, "/")
+	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	err := c.User.Root.Move(p, name, dst)
+	if err != nil {
+		return nil, err
+	}
+	return c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Name:   c.Name,
+		Action: tpPayload.UserMove,
+		PWD:    p,
+		Target: []string{name, dst},
+	}}, lib.DefaultWait)
 }
 
 // Download the file of the path into the dst path in the system
@@ -303,17 +322,35 @@ func (c *Client) DownloadFiles(p, dst string) {
 	}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		c.downloadFile(iNode.(*tpStorage.File), dst)
+		c.downloadFile(iNode.(*tpStorage.File), "", dst)
 	case *tpStorage.Directory:
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		c.downloadDirectory(iNode.(*tpStorage.Directory), dst, wg)
+		c.downloadDirectory(iNode.(*tpStorage.Directory), "", dst, wg)
+		wg.Wait()
+	}
+}
+
+// Download the shared file of owner in the path into the dst path in the system
+func (c *Client) DownloadSharedFiles(owner, p, dst string) {
+	iNode, err := c.GetINode(p)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	switch iNode.(type) {
+	case *tpStorage.File:
+		c.downloadFile(iNode.(*tpStorage.File), owner, dst)
+	case *tpStorage.Directory:
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		c.downloadDirectory(iNode.(*tpStorage.Directory), owner, dst, wg)
 		wg.Wait()
 	}
 }
 
 // Download the directory and all the files in it into the dst path in the system
-func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string, wg *sync.WaitGroup) {
+func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
@@ -321,17 +358,17 @@ func (c *Client) downloadDirectory(dir *tpStorage.Directory, dst string, wg *syn
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				c.downloadFile(iNode.(*tpStorage.File), path.Join(dst, dir.Name))
+				c.downloadFile(iNode.(*tpStorage.File), owner, path.Join(dst, dir.Name))
 			}()
 		case *tpStorage.Directory:
 			wg.Add(1)
-			go c.downloadDirectory(iNode.(*tpStorage.Directory), path.Join(dst, dir.Name), wg)
+			go c.downloadDirectory(iNode.(*tpStorage.Directory), owner, path.Join(dst, dir.Name), wg)
 		}
 	}
 }
 
 // Download the file into the dst path in the system
-func (c *Client) downloadFile(f *tpStorage.File, dst string) {
+func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
 	if err != nil {
 		fmt.Println(err)
@@ -343,7 +380,7 @@ func (c *Client) downloadFile(f *tpStorage.File, dst string) {
 		if i-errCount == lib.DefaultDataShards {
 			break
 		}
-		err = c.Download(storagePath, fragment)
+		err = c.Download(storagePath, owner, fragment)
 		if err != nil {
 			errCount++
 		}
@@ -464,4 +501,24 @@ func (c *Client) publicFileKey(file *tpStorage.File) (key string, err error) {
 		return
 	}
 	return key, nil
+}
+
+// Share Files
+func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]interface{}, error) {
+	src = c.fixPath(src)
+	dst = c.fixPath(dst)
+	pathParams := strings.Split(src, "/")
+	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	keys, err := c.User.Root.ShareFiles(p, name, dst, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Name:   c.Name,
+		Action: tpPayload.UserShare,
+		PWD:    p,
+		Target: []string{name, dst},
+	}}, lib.DefaultWait)
+	return keys, response, err
 }

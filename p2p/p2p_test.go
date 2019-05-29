@@ -79,7 +79,7 @@ func TestUpload(t *testing.T) {
 }
 
 func TestDownload(t *testing.T) {
-	go userNode.SendDownloadProtocol(seaPeer, "./test/", pubHash, pubSize)
-	go userNode.SendDownloadProtocol(seaPeer, "./test/", priHash, priSize)
+	go userNode.SendDownloadProtocol(seaPeer, "./test/", "", pubHash, pubSize)
+	go userNode.SendDownloadProtocol(seaPeer, "./test/", "", priHash, priSize)
 	time.Sleep(5 * time.Second)
 }

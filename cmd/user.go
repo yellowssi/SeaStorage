@@ -40,6 +40,7 @@ var userCommands = []string{
 	"update-info",
 	"update-key",
 	"rm",
+	"mv",
 	"share",
 	"public",
 	"public-key",
@@ -227,6 +228,19 @@ communicating with the transaction processor.`,
 				} else {
 					lib.PrintResponse(response)
 				}
+			case "mv":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					response, err := cli.Move(commands[1], commands[2])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						lib.PrintResponse(response)
+					}
+				}
 			case "get":
 				if len(commands) < 2 {
 					fmt.Println(missingOperandError)
@@ -258,6 +272,20 @@ communicating with the transaction processor.`,
 					if err != nil {
 						fmt.Println(err)
 					} else {
+						lib.PrintResponse(response)
+					}
+				}
+			case "share":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					keys, response, err := cli.ShareFiles(commands[1], commands[2])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printKeys(keys)
 						lib.PrintResponse(response)
 					}
 				}
@@ -309,6 +337,15 @@ func printINodeInfo(iNodes []tpStorage.INodeInfo) {
 
 func printINode(iNode tpStorage.INode) {
 	data, err := json.MarshalIndent(iNode, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(data))
+	}
+}
+
+func printKeys(keys map[string]string) {
+	data, err := json.Marshal(keys)
 	if err != nil {
 		fmt.Println(err)
 	} else {

@@ -76,7 +76,7 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 		return
 	}
 
-	err = p.sendDownload(s.Conn().RemotePeer(), data.MessageData.Id, tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Hash)
+	err = p.sendDownload(s.Conn().RemotePeer(), data.MessageData.Id, tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Owner, data.Hash)
 	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "download request",
@@ -92,8 +92,13 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 	}
 }
 
-func (p *SeaDownloadProtocol) sendDownload(peerId p2pPeer.ID, messageId, peerPub, hash string) error {
-	filename := path.Join(p.node.storagePath, peerPub, hash)
+func (p *SeaDownloadProtocol) sendDownload(peerId p2pPeer.ID, messageId, peerPub, owner, hash string) error {
+	var filename string
+	if owner != "" {
+		filename = path.Join(p.node.storagePath, owner, "shared", hash)
+	} else {
+		filename = path.Join(p.node.storagePath, peerPub, "home", hash)
+	}
 	src, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -398,7 +403,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 	}
 }
 
-func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, hash string, size int64) error {
+func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, owner, hash string, size int64) error {
 	done := make(chan error)
 	p.node.downloadInfos.Lock()
 	p.node.downloadInfos.m[hash] = &userDownloadInfo{
@@ -409,6 +414,7 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, hash
 	p.node.downloadInfos.Unlock()
 	req := &pb.DownloadRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
+		Owner:       owner,
 		Hash:        hash,
 	}
 	signature, err := p.node.signProtoMessage(req)

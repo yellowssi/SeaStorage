@@ -81,11 +81,11 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 	seaNode.SeaOperationProtocol = NewSeaOperationProtocol(seaNode)
 	seaNode.SeaDownloadProtocol = NewSeaDownloadProtocol(seaNode)
 	seaNode.SeaDownloadConfirmProtocol = NewSeaDownloadConfirmProtocol(seaNode)
-	go seaNode.SendOperations()
+	go seaNode.SendUserOperations()
 	return seaNode, nil
 }
 
-func (s *SeaNode) SendOperations() {
+func (s *SeaNode) SendUserOperations() {
 	for {
 		time.Sleep(time.Minute)
 		s.operations.Lock()
@@ -101,9 +101,9 @@ func (s *SeaNode) SendOperations() {
 			}
 			s.operations.Unlock()
 			payload := tpPayload.SeaStoragePayload{
-				Name:       s.Name,
-				Action:     tpPayload.SeaStoreFile,
-				Operations: operations,
+				Name:           s.Name,
+				Action:         tpPayload.SeaStoreFile,
+				UserOperations: operations,
 			}
 			resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
 			if err != nil {

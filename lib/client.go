@@ -69,13 +69,11 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	var seaStoragePayload tpPayload.SeaStoragePayload
 	if cf.Category {
 		seaStoragePayload.Action = tpPayload.CreateUser
-		seaStoragePayload.Target = name
-		cf.Name = name
 	} else {
 		seaStoragePayload.Action = tpPayload.CreateSea
-		seaStoragePayload.Target = name
-		cf.Name = name
 	}
+	seaStoragePayload.Target = []string{name}
+	cf.Name = name
 	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, 0)
 	if err != nil {
 		return nil, err
@@ -127,7 +125,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 
 		if seaStoragePayload.Action == tpPayload.SeaStoreFile {
 			addresses := make(map[string]string)
-			for _, operation := range seaStoragePayload.Operations {
+			for _, operation := range seaStoragePayload.UserOperations {
 				addresses[tpCrypto.SHA512HexFromHex(operation.Address)] = operation.Address
 			}
 			for _, address := range addresses {

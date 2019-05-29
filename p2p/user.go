@@ -100,7 +100,7 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	n.uploadInfos.Unlock()
 }
 
-func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {
+func (n *UserNode) Download(dst, owner string, fragment *tpStorage.Fragment) error {
 	for _, s := range fragment.Seas {
 		publicKey, err := p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s.PublicKey))
 		if err != nil {
@@ -110,7 +110,7 @@ func (n *UserNode) Download(dst string, fragment *tpStorage.Fragment) error {
 		if err != nil {
 			continue
 		}
-		err = n.SendDownloadProtocol(peerId, dst, fragment.Hash, fragment.Size)
+		err = n.SendDownloadProtocol(peerId, dst, owner, fragment.Hash, fragment.Size)
 		if err == nil {
 			return nil
 		}
