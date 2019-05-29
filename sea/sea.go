@@ -163,7 +163,7 @@ func (c *Client) ConfirmSeaOperations() {
 				dst := path.Join(target, "shared", operation.Hash)
 				err := lib.Copy(src, dst)
 				if err != nil {
-					lib.Logger.WithFields(logrus.Fields{"src": src, "dst": dst}).Error("failed to copy file")
+					lib.Logger.WithFields(logrus.Fields{"src": src, "dst": dst}).Error("failed to copy file:", err)
 				} else {
 					operations = append(operations, operation)
 				}

@@ -255,6 +255,8 @@ gitlab.com/SeaStorage/SeaStorage-TP v1.2.1 h1:YgK/sOkjanaljMWtvK5yyOCzc5nwQP3V2l
 gitlab.com/SeaStorage/SeaStorage-TP v1.2.1/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
 gitlab.com/SeaStorage/SeaStorage-TP v1.2.2 h1:mUMuZUJXJLRBsJAvUDz2YaT2/ee2hx5GVA77RTlj/N8=
 gitlab.com/SeaStorage/SeaStorage-TP v1.2.2/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
+gitlab.com/SeaStorage/SeaStorage-TP v1.2.3 h1:TEIaIgJ2UJO++mXcAKBQNIzf0gFFkaH+S7FzQ2K8EZE=
+gitlab.com/SeaStorage/SeaStorage-TP v1.2.3/go.mod h1:BI6VRJv+mYZnIVolxTWri4KxSVqC1je0CGMn2+9Gg3g=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
