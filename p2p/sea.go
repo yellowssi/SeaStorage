@@ -105,9 +105,19 @@ func (s *SeaNode) SendUserOperations() {
 				Action:         tpPayload.SeaStoreFile,
 				UserOperations: operations,
 			}
-			resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+			addresses := []string{s.GetAddress()}
+		L:
+			for _, operation := range operations {
+				for _, addr := range addresses {
+					if operation.Address == addr {
+						continue L
+					}
+				}
+				addresses = append(addresses, operation.Address)
+			}
+			resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 			if err != nil {
-				resp, err = s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+				resp, err = s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 				if err != nil {
 					lib.Logger.Error("failed to send transactions")
 				}

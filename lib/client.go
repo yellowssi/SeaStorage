@@ -74,7 +74,7 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 	seaStoragePayload.Target = []string{name}
 	cf.Name = name
-	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, 0)
+	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()}, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -114,26 +114,10 @@ func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]inte
 	return entry, nil
 }
 
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
-	// construct the address
-	address := cf.GetAddress()
 
 	for _, seaStoragePayload := range seaStoragePayloads {
-		inputs := []string{address}
-		outputs := []string{address}
-
-		if seaStoragePayload.Action == tpPayload.SeaStoreFile {
-			addresses := make(map[string]string)
-			for _, operation := range seaStoragePayload.UserOperations {
-				addresses[tpCrypto.SHA512HexFromHex(operation.Address)] = operation.Address
-			}
-			for _, address := range addresses {
-				inputs = append(inputs, address)
-				outputs = append(outputs, address)
-			}
-		}
-
 		// Construct TransactionHeader
 		rawTransactionHeader := transaction_pb2.TransactionHeader{
 			SignerPublicKey:  cf.signer.GetPublicKey().AsHex(),

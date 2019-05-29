@@ -165,11 +165,12 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	addresses := []string{c.GetAddress()}
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action: tpPayload.UserCreateDirectory,
 		Name:   c.Name,
 		PWD:    p,
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 	return response, err
 }
 
@@ -198,12 +199,13 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		return nil, err
 	}
 
+	addresses := []string{c.GetAddress()}
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action:   tpPayload.UserCreateFile,
 		Name:     c.Name,
 		PWD:      dst,
 		FileInfo: info,
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 
 	if err != nil {
 		return nil, err
@@ -262,16 +264,20 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
-	_, err := c.User.Root.DeleteDirectory(p, name, true)
+	seaOperations, err := c.User.Root.DeleteDirectory(p, name, true)
 	if err != nil {
 		return nil, err
+	}
+	addresses := []string{c.GetAddress()}
+	for addr := range seaOperations {
+		addresses = append(addresses, addr)
 	}
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action: tpPayload.UserDeleteDirectory,
 		Name:   c.Name,
 		PWD:    p,
 		Target: []string{name},
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 	return response, err
 }
 
@@ -281,16 +287,20 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	pathParams := strings.Split(p, "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
-	_, err := c.User.Root.DeleteFile(p, name, true)
+	seaOperations, err := c.User.Root.DeleteFile(p, name, true)
 	if err != nil {
 		return nil, err
+	}
+	addresses := []string{c.GetAddress()}
+	for addr := range seaOperations {
+		addresses = append(addresses, addr)
 	}
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Action: tpPayload.UserDeleteFile,
 		Name:   c.Name,
 		PWD:    p,
 		Target: []string{name},
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 	return response, err
 }
 
@@ -305,12 +315,13 @@ func (c *Client) Move(src, dst string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	addresses := []string{c.GetAddress()}
 	return c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Name:   c.Name,
 		Action: tpPayload.UserMove,
 		PWD:    p,
 		Target: []string{name, dst},
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 }
 
 // Download the file of the path into the dst path in the system
@@ -438,13 +449,18 @@ func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	addresses := []string{c.GetAddress()}
 	switch iNode.(type) {
 	case *tpStorage.File:
 		key, err := c.publicFileKey(iNode.(*tpStorage.File))
 		if err != nil {
 			return nil, err
 		}
-		return c.SendTransaction([]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublicKey, Key: key}}, lib.DefaultWait)
+		return c.SendTransaction(
+			[]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublicKey, Key: key}},
+			addresses,
+			addresses,
+			lib.DefaultWait)
 	case *tpStorage.Directory:
 		payloadMap, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
 		if err != nil {
@@ -454,7 +470,7 @@ func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 		for _, payload := range payloadMap {
 			payloads = append(payloads, payload)
 		}
-		return c.SendTransaction(payloads, lib.DefaultWait)
+		return c.SendTransaction(payloads, addresses, addresses, lib.DefaultWait)
 	}
 	return nil, errors.New("failed to public key")
 }
@@ -510,15 +526,19 @@ func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]inte
 	pathParams := strings.Split(src, "/")
 	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
 	name := pathParams[len(pathParams)-2]
-	keys, err := c.User.Root.ShareFiles(p, name, dst, true)
+	seaOperations, keys, err := c.User.Root.ShareFiles(p, name, dst, true)
 	if err != nil {
 		return nil, nil, err
+	}
+	addresses := []string{c.GetAddress()}
+	for addr := range seaOperations {
+		addresses = append(addresses, addr)
 	}
 	response, err := c.SendTransaction([]tpPayload.SeaStoragePayload{{
 		Name:   c.Name,
 		Action: tpPayload.UserShare,
 		PWD:    p,
 		Target: []string{name, dst},
-	}}, lib.DefaultWait)
+	}}, addresses, addresses, lib.DefaultWait)
 	return keys, response, err
 }

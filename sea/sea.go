@@ -186,9 +186,10 @@ func (c *Client) ConfirmSeaOperations() {
 
 func (c *Client) sendSeaOperations(operations []tpSea.Operation) (map[string]interface{}, error) {
 	payload := tpPayload.SeaStoragePayload{
-		Name: c.Name,
-		Action: tpPayload.SeaConfirmOperations,
+		Name:          c.Name,
+		Action:        tpPayload.SeaConfirmOperations,
 		SeaOperations: operations,
 	}
-	return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+	addresses := []string{c.GetAddress()}
+	return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 }
