@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +30,7 @@ import (
 )
 
 var (
+	version        bool
 	cfgFile        string
 	name           string
 	debug          bool
@@ -44,7 +46,12 @@ This application is a tool for store files on a P2P
 network based on hyperledger sawtooth.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		if version {
+			fmt.Println("SeaStorage (Decentralized File storage system)")
+			fmt.Println("Version: " + lib.FamilyVersion)
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -61,8 +68,9 @@ func init() {
 	cobra.OnInitialize(initLogger)
 	cobra.OnInitialize(initBootstrapNodes)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
+	rootCmd.PersistentFlags().BoolVarP(&version, "version", "v", false, "the version of SeaStorage")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file(json)")
+	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUsername(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
 	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
@@ -73,16 +81,26 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// TODO: Init Config file
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Search config in home directory with name ".SeaStorage" (without extension).
 		viper.AddConfigPath(lib.DefaultConfigPath)
-		viper.SetConfigName("config")
+		viper.SetConfigName(lib.DefaultConfigFilename)
+		if _, err := os.Stat(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename)); os.IsNotExist(err) {
+			cf, err := os.Create(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename))
+			if err != nil {
+				panic(err)
+			}
+			_, err = cf.Write(initConfigJson())
+			if err != nil {
+				panic(err)
+			}
+		}
 	}
 
+	viper.SetConfigType("json")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
@@ -127,7 +145,21 @@ func initBootstrapNodes() {
 	}
 }
 
-func GetDefaultUserName() string {
+func initConfigJson() []byte {
+	cfg := make(map[string]interface{})
+	cfg["url"] = lib.DefaultTPURL
+	cfg["key"] = GetDefaultKeyFile()
+	cfg["listen"] = lib.DefaultListenAddress
+	cfg["port"] = lib.DefaultListenPort
+	cfg["bootstrap"] = lib.DefaultBootstrapAddrs
+	data, err := json.MarshalIndent(cfg, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+func GetDefaultUsername() string {
 	u, err := user.Current()
 	if err != nil {
 		fmt.Println(err)
@@ -137,5 +169,5 @@ func GetDefaultUserName() string {
 }
 
 func GetDefaultKeyFile() string {
-	return path.Join(lib.DefaultKeyPath, GetDefaultUserName()+".priv")
+	return path.Join(lib.DefaultKeyPath, GetDefaultUsername()+".priv")
 }
