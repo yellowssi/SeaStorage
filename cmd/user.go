@@ -37,13 +37,13 @@ var userCommands = []string{
 	"mkdir",
 	"touch",
 	"rename",
-	"update-info",
-	"update-key",
+	"update-info", // TODO
+	"update-key",  // TODO
 	"rm",
 	"mv",
 	"share",
-	"public",
-	"public-key",
+	"publish",
+	"publish-key",
 	"ls",
 	"ls-shared",
 	"get",
@@ -131,7 +131,7 @@ communicating with the transaction processor.`,
 				if len(commands) == 1 {
 					err = cli.ChangePWD("/")
 				} else if len(commands) > 2 {
-					err = errors.New("invalid path")
+					err = invalidPathError
 				} else {
 					err = cli.ChangePWD(commands[1])
 				}
@@ -143,7 +143,7 @@ communicating with the transaction processor.`,
 				if len(commands) == 1 {
 					iNodes, err = cli.ListDirectory(cli.PWD)
 				} else if len(commands) > 2 {
-					err = errors.New("invalid path")
+					err = invalidPathError
 				} else {
 					iNodes, err = cli.ListDirectory(commands[1])
 				}
@@ -157,7 +157,7 @@ communicating with the transaction processor.`,
 				if len(commands) == 1 {
 					iNodes, err = cli.ListSharedDirectory(cli.PWD)
 				} else if len(commands) > 2 {
-					err = errors.New("invalid path")
+					err = invalidPathError
 				} else {
 					iNodes, err = cli.ListSharedDirectory(commands[1])
 				}
@@ -168,9 +168,9 @@ communicating with the transaction processor.`,
 				}
 			case "mkdir":
 				if len(commands) < 2 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
-					fmt.Println(errors.New("invalid path"))
+					fmt.Println(invalidPathError)
 				} else {
 					response, err = cli.CreateDirectory(commands[1])
 					if err != nil {
@@ -181,10 +181,25 @@ communicating with the transaction processor.`,
 				}
 			case "touch":
 				if len(commands) < 3 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
 				} else {
-					// TODO: Select Sea To Store File
+					// TODO: Select Sea To Store File & Select data shards
 					response, err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						lib.PrintResponse(response)
+					}
+				}
+			case "rename":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					response, err = cli.Rename(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -193,10 +208,10 @@ communicating with the transaction processor.`,
 				}
 			case "rm":
 				if len(commands) < 2 {
-					fmt.Println("missing operand")
+					fmt.Println(missingOperandError)
 					continue
 				} else if len(commands) > 2 {
-					fmt.Println("invalid path")
+					fmt.Println(invalidPathError)
 					continue
 				}
 				iNode, err := cli.GetINode(commands[1])
@@ -304,13 +319,13 @@ communicating with the transaction processor.`,
 					}
 					cli.DownloadSharedFiles(commands[1], commands[2], owner)
 				}
-			case "public-key":
+			case "publish-key":
 				if len(commands) < 2 {
 					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
 					fmt.Println(invalidPathError)
 				} else {
-					response, err = cli.PublicKey(commands[1])
+					response, err = cli.PublishKey(commands[1])
 					if err != nil {
 						fmt.Println(err)
 					} else {

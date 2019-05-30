@@ -261,6 +261,25 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 	lib.Logger.WithFields(logrus.Fields{}).Info("file upload finish")
 }
 
+// Rename the file or directory
+func (c *Client) Rename(src, newName string) (map[string]interface{}, error) {
+	src = c.fixPath(src)
+	pathParams := strings.Split(src, "/")
+	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	err := c.User.Root.UpdateName(p, name, newName)
+	if err != nil {
+		return nil, err
+	}
+	addresses := []string{c.GetAddress()}
+	return c.SendTransaction([]tpPayload.SeaStoragePayload{{
+		Name:   c.Name,
+		Action: tpPayload.UserUpdateName,
+		PWD:    p,
+		Target: []string{name, newName},
+	}}, addresses, addresses, lib.DefaultWait)
+}
+
 // List directory infos in the path of home directory
 func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	return c.User.Root.ListDirectory(c.fixPath(p))
@@ -456,8 +475,8 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	}
 }
 
-// Public keys of the files in the path
-func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
+// Publish keys of the files in the path
+func (c *Client) PublishKey(p string) (map[string]interface{}, error) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
 		return nil, err
@@ -465,17 +484,17 @@ func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 	addresses := []string{c.GetAddress()}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		key, err := c.publicFileKey(iNode.(*tpStorage.File))
+		key, err := c.publishFileKey(iNode.(*tpStorage.File))
 		if err != nil {
 			return nil, err
 		}
 		return c.SendTransaction(
-			[]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublicKey, Key: key}},
+			[]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublishKey, Key: key}},
 			addresses,
 			addresses,
 			lib.DefaultWait)
 	case *tpStorage.Directory:
-		payloadMap, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
+		payloadMap, err := c.publishDirectoryKey(iNode.(*tpStorage.Directory))
 		if err != nil {
 			return nil, err
 		}
@@ -488,22 +507,22 @@ func (c *Client) PublicKey(p string) (map[string]interface{}, error) {
 	return nil, errors.New("failed to public key")
 }
 
-// Public keys of the files in the directory
-func (c *Client) publicDirectoryKey(dir *tpStorage.Directory) (map[string]tpPayload.SeaStoragePayload, error) {
+// Publish keys of the files in the directory
+func (c *Client) publishDirectoryKey(dir *tpStorage.Directory) (map[string]tpPayload.SeaStoragePayload, error) {
 	payloads := make(map[string]tpPayload.SeaStoragePayload)
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
 		case *tpStorage.File:
-			key, err := c.publicFileKey(iNode.(*tpStorage.File))
+			key, err := c.publishFileKey(iNode.(*tpStorage.File))
 			if err != nil {
 				return nil, err
 			}
 			_, ok := payloads[key]
 			if !ok {
-				payloads[key] = tpPayload.SeaStoragePayload{Action: tpPayload.UserPublicKey, Key: key}
+				payloads[key] = tpPayload.SeaStoragePayload{Action: tpPayload.UserPublishKey, Key: key}
 			}
 		case *tpStorage.Directory:
-			subPayloads, err := c.publicDirectoryKey(iNode.(*tpStorage.Directory))
+			subPayloads, err := c.publishDirectoryKey(iNode.(*tpStorage.Directory))
 			if err != nil {
 				return nil, err
 			}
@@ -518,14 +537,14 @@ func (c *Client) publicDirectoryKey(dir *tpStorage.Directory) (map[string]tpPayl
 	return payloads, nil
 }
 
-// Public key of the file
-func (c *Client) publicFileKey(file *tpStorage.File) (key string, err error) {
+// Publish key of the file
+func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 	keyBytes, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
 	if err != nil {
 		return
 	}
 	key = tpCrypto.BytesToHex(keyBytes)
-	err = c.User.Root.PublicKey(c.GetPublicKey(), key)
+	err = c.User.Root.PublishKey(c.GetPublicKey(), key)
 	if err != nil {
 		return
 	}

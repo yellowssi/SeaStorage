@@ -29,7 +29,8 @@ const (
 	DefaultDataShards     int    = 5
 	DefaultParShards      int    = 3
 	DefaultConfigFilename string = "config"
-	PackageSize           int64  = 134217728
+	PackageSize           int64  = 128 * 1024 * 1024
+	BigFileSize           int64  = 1024 * 1024 * 1024
 	// Content types
 	ContentTypeOctetStream string = "application/octet-stream"
 	ContentTypeJson        string = "application/json"

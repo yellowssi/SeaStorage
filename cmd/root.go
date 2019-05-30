@@ -50,7 +50,9 @@ network based on hyperledger sawtooth.`,
 		if version {
 			fmt.Println("SeaStorage (Decentralized File storage system)")
 			fmt.Println("Version: " + lib.FamilyVersion)
+			return
 		}
+		cmd.Help()
 	},
 }
 
