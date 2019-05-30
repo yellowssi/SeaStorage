@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -16,6 +18,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
+	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
@@ -62,7 +65,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddrs []ma.Multiaddr) {
+func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddrs []ma.Multiaddr) {
 	priv, _ := ioutil.ReadFile(keyFile)
 	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
 	if err != nil {
@@ -121,7 +124,67 @@ func (c Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddr
 		"peer id":           host.ID().String(),
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			c.ConfirmSeaOperations()
+		}
+	}()
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	<-sigs
+}
+
+func (c *Client) ConfirmSeaOperations() {
+	err := c.Sync()
+	if err != nil {
+		lib.Logger.Error("failed to sync:", err)
+		return
+	}
+	if len(c.Sea.Operations) > 0 {
+		operations := make([]tpSea.Operation, 0)
+		for _, operation := range c.Sea.Operations {
+			target := path.Join(lib.StoragePath, operation.Owner)
+			operations = append(operations, operation)
+			switch operation.Action {
+			case tpSea.ActionUserDelete:
+				if operation.Shared {
+					target = path.Join(target, "shared", operation.Hash)
+				} else {
+					target = path.Join(target, "home", operation.Hash)
+				}
+				err := os.Remove(target)
+				if err != nil {
+					lib.Logger.Error("failed to remove file: ", target)
+				}
+			case tpSea.ActionUserShared:
+				src := path.Join(target, "home", operation.Hash)
+				dst := path.Join(target, "shared", operation.Hash)
+				err := lib.Copy(src, dst)
+				if err != nil {
+					lib.Logger.WithFields(logrus.Fields{"src": src, "dst": dst}).Error("failed to copy file:", err)
+				}
+			case tpSea.ActionGroupDelete:
+				// TODO: Group Action
+			case tpSea.ActionGroupShared:
+			}
+		}
+		response, err := c.sendSeaOperations(operations)
+		if err != nil {
+			lib.Logger.Error("failed to send transaction")
+			return
+		}
+		lib.Logger.Info("confirm sea operation transaction sent success:", response)
+		c.Sea.RemoveOperations(operations)
+	}
+}
+
+func (c *Client) sendSeaOperations(operations []tpSea.Operation) (map[string]interface{}, error) {
+	payload := tpPayload.SeaStoragePayload{
+		Name:          c.Name,
+		Action:        tpPayload.SeaConfirmOperations,
+		SeaOperations: operations,
+	}
+	addresses := []string{c.GetAddress()}
+	return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 }

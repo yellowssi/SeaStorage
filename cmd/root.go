@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +30,7 @@ import (
 )
 
 var (
+	version        bool
 	cfgFile        string
 	name           string
 	debug          bool
@@ -44,7 +46,14 @@ This application is a tool for store files on a P2P
 network based on hyperledger sawtooth.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		if version {
+			fmt.Println("SeaStorage (Decentralized File storage system)")
+			fmt.Println("Version: " + lib.FamilyVersion)
+			return
+		}
+		cmd.Help()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -57,14 +66,15 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	initConfig()
 	cobra.OnInitialize(initLogger)
 	cobra.OnInitialize(initBootstrapNodes)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUserName(), "the name of user/sea")
+	rootCmd.PersistentFlags().BoolVarP(&version, "version", "v", false, "the version of SeaStorage")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file(json)")
+	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUsername(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
-	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
+	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", lib.DefaultKeyFile, "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
 	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
@@ -73,28 +83,49 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// TODO: Init Config file
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Search config in home directory with name ".SeaStorage" (without extension).
 		viper.AddConfigPath(lib.DefaultConfigPath)
-		viper.SetConfigName("config")
+		viper.SetConfigName(lib.DefaultConfigFilename)
+		if _, err := os.Stat(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json")); os.IsNotExist(err) {
+			cf, err := os.Create(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json"))
+			if err != nil {
+				panic(err)
+			}
+			_, err = cf.Write(initConfigJson())
+			if err != nil {
+				panic(err)
+			}
+			cf.Close()
+		}
 	}
 
+	viper.SetConfigType("json")
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	} else {
+		lib.DefaultTPURL = viper.GetString("url")
+		lib.DefaultKeyFile = viper.GetString("key")
+		lib.DefaultListenAddress = viper.GetString("listen")
+		lib.DefaultListenPort = viper.GetInt("port")
+		lib.DefaultBootstrapAddrs = viper.GetStringSlice("bootstrap")
 	}
 }
 
 // initLogger config logger
 func initLogger() {
 	lib.Logger = logrus.New()
-	lib.Logger.SetFormatter(&logrus.JSONFormatter{})
+	lib.Logger.SetFormatter(&logrus.TextFormatter{
+		ForceColors: true,
+	})
 	os.MkdirAll(lib.DefaultLogPath, 0755)
 	logFile, err := os.OpenFile(path.Join(lib.DefaultLogPath, "SeaStorage"), os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -125,7 +156,21 @@ func initBootstrapNodes() {
 	}
 }
 
-func GetDefaultUserName() string {
+func initConfigJson() []byte {
+	cfg := make(map[string]interface{})
+	cfg["url"] = lib.DefaultTPURL
+	cfg["key"] = GetDefaultKeyFile()
+	cfg["listen"] = lib.DefaultListenAddress
+	cfg["port"] = lib.DefaultListenPort
+	cfg["bootstrap"] = lib.DefaultBootstrapAddrs
+	data, err := json.MarshalIndent(cfg, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+	return data
+}
+
+func GetDefaultUsername() string {
 	u, err := user.Current()
 	if err != nil {
 		fmt.Println(err)
@@ -135,5 +180,5 @@ func GetDefaultUserName() string {
 }
 
 func GetDefaultKeyFile() string {
-	return path.Join(lib.DefaultKeyPath, GetDefaultUserName()+".priv")
+	return path.Join(lib.DefaultKeyPath, GetDefaultUsername()+".priv")
 }

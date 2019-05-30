@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
 	ggio "github.com/gogo/protobuf/io"
 	"github.com/gogo/protobuf/proto"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -77,7 +78,7 @@ func (n *Node) signData(data []byte) ([]byte, error) {
 // peerId: author p2pPeer id from the message payload
 // pubKeyData: author public key from the message payload
 func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubKeyData []byte) bool {
-	key, err := p2pCrypto.UnmarshalPublicKey(pubKeyData)
+	key, err := p2pCrypto.UnmarshalSecp256k1PublicKey(pubKeyData)
 	if err != nil {
 		log.Println(err, "Failed to extract key from message key data")
 		return false
@@ -111,11 +112,7 @@ func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubK
 func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 	// Add protobufs bin data for message author public key
 	// this is useful for authenticating  messages forwarded by a node authored by another node
-	nodePubKey, err := n.Peerstore().PubKey(n.ID()).Bytes()
-
-	if err != nil {
-		panic("Failed to get public key for sender from local p2pPeer store.")
-	}
+	nodePubKey := (*btcec.PublicKey)(n.Peerstore().PubKey(n.ID()).(*p2pCrypto.Secp256k1PublicKey)).SerializeCompressed()
 
 	return &pb.MessageData{
 		ClientVersion: lib.FamilyName + "/" + lib.FamilyVersion,

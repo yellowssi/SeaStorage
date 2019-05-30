@@ -37,15 +37,19 @@ var userCommands = []string{
 	"mkdir",
 	"touch",
 	"rename",
-	"update-info",
-	"update-key",
+	"update-info", // TODO
+	"update-key",  // TODO
 	"rm",
+	"mv",
 	"share",
-	"public",
-	"public-key",
+	"publish",
+	"publish-key",
 	"ls",
+	"ls-shared",
 	"get",
+	"get-shared",
 	"download",
+	"download-shared",
 	"exit",
 }
 
@@ -127,7 +131,7 @@ communicating with the transaction processor.`,
 				if len(commands) == 1 {
 					err = cli.ChangePWD("/")
 				} else if len(commands) > 2 {
-					err = errors.New("invalid path")
+					err = invalidPathError
 				} else {
 					err = cli.ChangePWD(commands[1])
 				}
@@ -139,7 +143,7 @@ communicating with the transaction processor.`,
 				if len(commands) == 1 {
 					iNodes, err = cli.ListDirectory(cli.PWD)
 				} else if len(commands) > 2 {
-					err = errors.New("invalid path")
+					err = invalidPathError
 				} else {
 					iNodes, err = cli.ListDirectory(commands[1])
 				}
@@ -148,11 +152,25 @@ communicating with the transaction processor.`,
 				} else {
 					printINodeInfo(iNodes)
 				}
+			case "ls-shared":
+				var iNodes []tpStorage.INodeInfo
+				if len(commands) == 1 {
+					iNodes, err = cli.ListSharedDirectory(cli.PWD)
+				} else if len(commands) > 2 {
+					err = invalidPathError
+				} else {
+					iNodes, err = cli.ListSharedDirectory(commands[1])
+				}
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					printINodeInfo(iNodes)
+				}
 			case "mkdir":
 				if len(commands) < 2 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
-					fmt.Println(errors.New("invalid path"))
+					fmt.Println(invalidPathError)
 				} else {
 					response, err = cli.CreateDirectory(commands[1])
 					if err != nil {
@@ -163,10 +181,25 @@ communicating with the transaction processor.`,
 				}
 			case "touch":
 				if len(commands) < 3 {
-					fmt.Println(errors.New("missing operand"))
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
 				} else {
-					// TODO: Select Sea To Store File
+					// TODO: Select Sea To Store File & Select data shards
 					response, err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						lib.PrintResponse(response)
+					}
+				}
+			case "rename":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					response, err = cli.Rename(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -175,10 +208,10 @@ communicating with the transaction processor.`,
 				}
 			case "rm":
 				if len(commands) < 2 {
-					fmt.Println("missing operand")
+					fmt.Println(missingOperandError)
 					continue
 				} else if len(commands) > 2 {
-					fmt.Println("invalid path")
+					fmt.Println(invalidPathError)
 					continue
 				}
 				iNode, err := cli.GetINode(commands[1])
@@ -227,6 +260,19 @@ communicating with the transaction processor.`,
 				} else {
 					lib.PrintResponse(response)
 				}
+			case "mv":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					response, err := cli.Move(commands[1], commands[2])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						lib.PrintResponse(response)
+					}
+				}
 			case "get":
 				if len(commands) < 2 {
 					fmt.Println(missingOperandError)
@@ -234,6 +280,19 @@ communicating with the transaction processor.`,
 					fmt.Println(invalidPathError)
 				} else {
 					iNode, err := cli.GetINode(commands[1])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printINode(iNode)
+					}
+				}
+			case "get-shared":
+				if len(commands) < 2 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 2 {
+					fmt.Println(invalidPathError)
+				} else {
+					iNode, err := cli.GetSharedINode(commands[1])
 					if err != nil {
 						fmt.Println(err)
 					} else {
@@ -248,16 +307,42 @@ communicating with the transaction processor.`,
 				} else {
 					cli.DownloadFiles(commands[1], commands[2])
 				}
-			case "public-key":
+			case "download-shared":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 4 {
+					fmt.Println(invalidPathError)
+				} else {
+					owner := ""
+					if len(commands) == 4 {
+						owner = commands[3]
+					}
+					cli.DownloadSharedFiles(commands[1], commands[2], owner)
+				}
+			case "publish-key":
 				if len(commands) < 2 {
 					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
 					fmt.Println(invalidPathError)
 				} else {
-					response, err = cli.PublicKey(commands[1])
+					response, err = cli.PublishKey(commands[1])
 					if err != nil {
 						fmt.Println(err)
 					} else {
+						lib.PrintResponse(response)
+					}
+				}
+			case "share":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					keys, response, err := cli.ShareFiles(commands[1], commands[2])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printKeys(keys)
 						lib.PrintResponse(response)
 					}
 				}
@@ -309,6 +394,15 @@ func printINodeInfo(iNodes []tpStorage.INodeInfo) {
 
 func printINode(iNode tpStorage.INode) {
 	data, err := json.MarshalIndent(iNode, "", "\t")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(data))
+	}
+}
+
+func printKeys(keys map[string]string) {
+	data, err := json.Marshal(keys)
 	if err != nil {
 		fmt.Println(err)
 	} else {

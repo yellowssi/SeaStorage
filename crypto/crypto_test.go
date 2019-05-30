@@ -3,6 +3,7 @@ package crypto
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -89,7 +90,8 @@ func TestMergeFile(t *testing.T) {
 }
 
 func TestGenerateFileInfo(t *testing.T) {
-	info, err := GenerateFileInfo("./test/test.priv", 5, 3)
+	publicKeyBytes, _ := ioutil.ReadFile("./test/test.pub")
+	info, err := GenerateFileInfo("./test/test.priv", string(publicKeyBytes), 5, 3)
 	if err != nil {
 		t.Error(err)
 	}

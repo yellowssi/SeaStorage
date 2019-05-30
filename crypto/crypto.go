@@ -59,36 +59,65 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	os.Rename(path.Join(lib.DefaultTmpPath, inFileInfo.Name()+lib.EncryptSuffix), path.Join(lib.DefaultTmpPath, hash, hash))
 
 	// Split File
-	f, err := os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
-	if err != nil {
-		return
-	}
-	defer func() {
-		f.Close()
-		os.Remove(f.Name())
-	}()
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return
-	}
-	hashes, fragmentSize, err := SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
-	if err != nil {
-		return
-	}
-	fragments := make([]*tpStorage.Fragment, dataShards+parShards)
-	for i := range fragments {
-		fragments[i] = &tpStorage.Fragment{
-			Hash: hashes[i],
-			Size: fragmentSize,
-			Seas: make([]*tpStorage.FragmentSea, 0),
+	var f *os.File
+	var fileInfo os.FileInfo
+	if inFileInfo.Size() >= lib.BigFileSize {
+		f, err = os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
+		if err != nil {
+			return
 		}
-	}
-	info = tpStorage.FileInfo{
-		Name:      inFileInfo.Name(),
-		Size:      fileInfo.Size(),
-		Hash:      hash,
-		Key:       tpCrypto.BytesToHex(keyEncrypt),
-		Fragments: fragments,
+		defer func() {
+			f.Close()
+		}()
+		fileInfo, err = f.Stat()
+		if err != nil {
+			return
+		}
+		info = tpStorage.FileInfo{
+			Name: inFileInfo.Name(),
+			Size: fileInfo.Size(),
+			Hash: hash,
+			Key:  tpCrypto.BytesToHex(keyEncrypt),
+			Fragments: []*tpStorage.Fragment{{
+				Hash: hash,
+				Size: inFileInfo.Size(),
+				Seas: make([]*tpStorage.FragmentSea, 0),
+			}},
+		}
+	} else {
+		f, err = os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
+		if err != nil {
+			return
+		}
+		defer func() {
+			f.Close()
+			os.Remove(f.Name())
+		}()
+		fileInfo, err = f.Stat()
+		if err != nil {
+			return
+		}
+		var hashes []string
+		var fragmentSize int64
+		hashes, fragmentSize, err = SplitFile(f, path.Join(lib.DefaultTmpPath, hash), dataShards, parShards)
+		if err != nil {
+			return
+		}
+		fragments := make([]*tpStorage.Fragment, dataShards+parShards)
+		for i := range fragments {
+			fragments[i] = &tpStorage.Fragment{
+				Hash: hashes[i],
+				Size: fragmentSize,
+				Seas: make([]*tpStorage.FragmentSea, 0),
+			}
+		}
+		info = tpStorage.FileInfo{
+			Name:      inFileInfo.Name(),
+			Size:      fileInfo.Size(),
+			Hash:      hash,
+			Key:       tpCrypto.BytesToHex(keyEncrypt),
+			Fragments: fragments,
+		}
 	}
 	return
 }

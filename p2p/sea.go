@@ -81,13 +81,13 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 	seaNode.SeaOperationProtocol = NewSeaOperationProtocol(seaNode)
 	seaNode.SeaDownloadProtocol = NewSeaDownloadProtocol(seaNode)
 	seaNode.SeaDownloadConfirmProtocol = NewSeaDownloadConfirmProtocol(seaNode)
-	go seaNode.SendOperations()
+	go seaNode.SendUserOperations()
 	return seaNode, nil
 }
 
-func (s *SeaNode) SendOperations() {
+func (s *SeaNode) SendUserOperations() {
 	for {
-		time.Sleep(time.Minute)
+		time.Sleep(time.Second)
 		s.operations.Lock()
 		length := len(s.operations.m)
 		s.operations.Unlock()
@@ -101,13 +101,23 @@ func (s *SeaNode) SendOperations() {
 			}
 			s.operations.Unlock()
 			payload := tpPayload.SeaStoragePayload{
-				Name:       s.Name,
-				Action:     tpPayload.SeaStoreFile,
-				Operations: operations,
+				Name:           s.Name,
+				Action:         tpPayload.SeaStoreFile,
+				UserOperations: operations,
 			}
-			resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+			addresses := []string{s.GetAddress()}
+		L:
+			for _, operation := range operations {
+				for _, addr := range addresses {
+					if operation.Address == addr {
+						continue L
+					}
+				}
+				addresses = append(addresses, operation.Address)
+			}
+			resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 			if err != nil {
-				resp, err = s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, lib.DefaultWait)
+				resp, err = s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
 				if err != nil {
 					lib.Logger.Error("failed to send transactions")
 				}

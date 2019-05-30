@@ -88,7 +88,23 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp")); os.IsNotExist(err) {
 		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp"), 0700)
 		if err != nil {
-			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey)))
+			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp"))
+			return
+		}
+	}
+
+	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "home")); os.IsNotExist(err) {
+		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "home"), 0700)
+		if err != nil {
+			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "home"))
+			return
+		}
+	}
+
+	if _, err = os.Stat(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "shared")); os.IsNotExist(err) {
+		err = os.MkdirAll(path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "shared"), 0700)
+		if err != nil {
+			lib.Logger.Error("failed to create directory:", path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "home"))
 			return
 		}
 	}
@@ -205,7 +221,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		}()
 		<-done
 		// Verify fragments
-		storagePath := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey))
+		storagePath := path.Join(p.node.storagePath, tpCrypto.BytesToHex(data.MessageData.NodePubKey), "tmp")
 		targetFile := path.Join(storagePath, data.Tag)
 		f, err := os.OpenFile(targetFile, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
@@ -213,7 +229,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 			return
 		}
 		for i := int64(0); i < data.PackageId; i++ {
-			fragment, err := ioutil.ReadFile(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
+			fragment, err := ioutil.ReadFile(path.Join(storagePath, data.Tag+"-"+strconv.FormatInt(i, 10)))
 			if err != nil {
 				if os.IsNotExist(err) {
 					err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, "", i)
@@ -221,7 +237,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 						err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, "", i)
 					}
 				} else {
-					lib.Logger.Error("failed to read fragment:", path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
+					lib.Logger.Error("failed to read fragment:", path.Join(storagePath, data.Tag+"-"+strconv.FormatInt(i, 10)))
 				}
 				return
 			}
@@ -235,7 +251,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 			}
 		}
 		for i := int64(0); i < data.PackageId; i++ {
-			os.Remove(path.Join(storagePath, "tmp", data.Tag+"-"+strconv.FormatInt(i, 10)))
+			os.Remove(path.Join(storagePath, data.Tag+"-"+strconv.FormatInt(i, 10)))
 		}
 		err = f.Truncate(uploadInfo.query.Size)
 		f.Close()
@@ -387,17 +403,18 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 		}).Warn("failed to unmarshal:", err)
 		return
 	}
-	if !op.Verify() || op.Hash != uploadInfo.hash {
+
+	if !op.Verify() || op.PublicKey != tpCrypto.BytesToHex(data.MessageData.NodePubKey) || op.Hash != uploadInfo.hash {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("failed to authenticate")
+		}).Warn("invalid operation")
 		return
 	}
 
 	peerPub := tpCrypto.BytesToHex(data.MessageData.NodePubKey)
-	err = os.Rename(path.Join(p.node.storagePath, peerPub, data.Tag), path.Join(p.node.storagePath, peerPub, op.Hash))
+	err = os.Rename(path.Join(p.node.storagePath, peerPub, "tmp", data.Tag), path.Join(p.node.storagePath, peerPub, "home", op.Hash))
 	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "operation request",
