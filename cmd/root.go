@@ -64,7 +64,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	initConfig()
 	cobra.OnInitialize(initLogger)
 	cobra.OnInitialize(initBootstrapNodes)
 
@@ -72,7 +72,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file(json)")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUsername(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
-	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", GetDefaultKeyFile(), "the private key file for identity")
+	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", lib.DefaultKeyFile, "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
 	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
@@ -88,8 +88,8 @@ func initConfig() {
 		// Search config in home directory with name ".SeaStorage" (without extension).
 		viper.AddConfigPath(lib.DefaultConfigPath)
 		viper.SetConfigName(lib.DefaultConfigFilename)
-		if _, err := os.Stat(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename)); os.IsNotExist(err) {
-			cf, err := os.Create(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename))
+		if _, err := os.Stat(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json")); os.IsNotExist(err) {
+			cf, err := os.Create(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json"))
 			if err != nil {
 				panic(err)
 			}
@@ -97,6 +97,7 @@ func initConfig() {
 			if err != nil {
 				panic(err)
 			}
+			cf.Close()
 		}
 	}
 
@@ -104,8 +105,16 @@ func initConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	} else {
+		lib.DefaultTPURL = viper.GetString("url")
+		lib.DefaultKeyFile = viper.GetString("key")
+		lib.DefaultListenAddress = viper.GetString("listen")
+		lib.DefaultListenPort = viper.GetInt("port")
+		lib.DefaultBootstrapAddrs = viper.GetStringSlice("bootstrap")
 	}
 }
 
