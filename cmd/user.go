@@ -45,8 +45,11 @@ var userCommands = []string{
 	"publish",
 	"publish-key",
 	"ls",
+	"ls-own",
+	"ls-user",
 	"ls-shared",
 	"get",
+	"get-own",
 	"get-shared",
 	"download",
 	"download-shared",
@@ -152,7 +155,7 @@ communicating with the transaction processor.`,
 				} else {
 					printINodeInfo(iNodes)
 				}
-			case "ls-shared":
+			case "ls-own":
 				var iNodes []tpStorage.INodeInfo
 				if len(commands) == 1 {
 					iNodes, err = cli.ListSharedDirectory(cli.PWD)
@@ -165,6 +168,44 @@ communicating with the transaction processor.`,
 					fmt.Println(err)
 				} else {
 					printINodeInfo(iNodes)
+				}
+			case "ls-user":
+				if len(commands) == 1 {
+					err := cli.ListUsersShared(false)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					for addr := range cli.QueryCache {
+						fmt.Println("Address: ", addr)
+					}
+					return
+				} else if len(commands) == 2 {
+					if commands[1] == "next" {
+						err := cli.ListUsersShared(true)
+						if err != nil {
+							fmt.Println(err)
+							return
+						}
+						for addr := range cli.QueryCache {
+							fmt.Println("Address: ", addr)
+						}
+					}
+				} else {
+					fmt.Println(missingOperandError)
+				}
+			case "ls-shared":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					infos, err := cli.ListOtherSharedDirectory(commands[1], commands[2])
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					printINodeInfo(infos)
 				}
 			case "mkdir":
 				if len(commands) < 2 {
@@ -286,13 +327,26 @@ communicating with the transaction processor.`,
 						printINode(iNode)
 					}
 				}
-			case "get-shared":
+			case "get-own":
 				if len(commands) < 2 {
 					fmt.Println(missingOperandError)
 				} else if len(commands) > 2 {
 					fmt.Println(invalidPathError)
 				} else {
 					iNode, err := cli.GetSharedINode(commands[1])
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						printINode(iNode)
+					}
+				}
+			case "get-shared":
+				if len(commands) < 3 {
+					fmt.Println(missingOperandError)
+				} else if len(commands) > 3 {
+					fmt.Println(invalidPathError)
+				} else {
+					iNode, err := cli.GetOtherSharedINode(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
 					} else {

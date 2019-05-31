@@ -38,6 +38,7 @@ const (
 	FamilyVersion         string = "1.0.0"
 	DefaultTmpPath        string = "/tmp/SeaStorage"
 	DefaultWait           uint   = 60
+	DefaultQueryLimit     uint   = 20
 	AESKeySize            int    = 256
 	EncryptSuffix         string = ".enc"
 	DefaultDataShards     int    = 5

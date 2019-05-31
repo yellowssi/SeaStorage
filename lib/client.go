@@ -15,7 +15,6 @@
 package lib
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -60,8 +59,8 @@ var (
 // The Client Framework for both user and sea.
 // ClientFramework provides SeaStorage base operations for both user and sea.
 type ClientFramework struct {
-	Name     string          // The name of user or sea.
-	Category bool            // The category of client framework.
+	Name     string // The name of user or sea.
+	Category bool   // The category of client framework.
 	signer   *signing.Signer
 }
 
@@ -108,20 +107,7 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 
 // Get user or sea's information from the blockchain.
 func (cf *ClientFramework) GetData() ([]byte, error) {
-	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.GetAddress())
-	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
-	if err != nil {
-		return nil, err
-	}
-	data, ok := response["data"]
-	if !ok {
-		return nil, errors.New("error reading as string")
-	}
-	decodedBytes, err := base64.StdEncoding.DecodeString(data.(string))
-	if err != nil {
-		return nil, err
-	}
-	return decodedBytes, nil
+	return GetStateData(cf.GetAddress())
 }
 
 // Get the address of user or sea using for storing information in the blockchain.

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package lib
 
 import (
@@ -27,9 +26,16 @@ import (
 
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 )
+
+func GetStateData(addr string) ([]byte, error) {
+	apiSuffix := fmt.Sprintf("%s/%s", StateApi, addr)
+	resp, err := sendRequestByAPISuffix(apiSuffix, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	return base64.StdEncoding.DecodeString(resp["data"].(string))
+}
 
 func list(address, start string, limit uint) (result []interface{}, err error) {
 	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, address)
@@ -39,7 +45,7 @@ func list(address, start string, limit uint) (result []interface{}, err error) {
 	if limit > 0 {
 		apiSuffix = fmt.Sprintf("%s&limit=%v", apiSuffix, limit)
 	}
-	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
+	response, err := sendRequestByAPISuffix(apiSuffix, nil, "")
 	if err != nil {
 		return
 	}
@@ -54,29 +60,6 @@ func ListAll(start string, limit uint) ([]interface{}, error) {
 // Get the list of user's data.
 func ListUsers(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.UserNamespace, start, limit)
-}
-
-// Get the list of user's storage root. Using for listing the shared files.
-func ListUserRoot(start string, limit uint) ([]tpStorage.Root, error) {
-	users, err := ListUsers(start, limit)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]tpStorage.Root, 0)
-	for i := range users {
-		uBytes, err := base64.StdEncoding.DecodeString(users[i].(map[string]interface{})["data"].(string))
-		if err != nil {
-			return nil, err
-		}
-		u, err := tpUser.UserFromBytes(uBytes)
-		if err != nil {
-			return nil, err
-		}
-		if u.Root.Share.Size > 0 {
-			result = append(result, *u.Root)
-		}
-	}
-	return result, nil
 }
 
 // Get the list of sea's data.

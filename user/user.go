@@ -16,6 +16,7 @@ package user
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -40,8 +41,10 @@ import (
 )
 
 type Client struct {
-	User *tpUser.User
-	PWD  string
+	User         *tpUser.User
+	PWD          string
+	lastQueryEnd string
+	QueryCache   map[string]*tpUser.User
 	*p2p.UserNode
 	*lib.ClientFramework
 }
@@ -105,10 +108,16 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		}(*peerInfo)
 	}
 	wg.Wait()
-	return &Client{User: u, PWD: "/", UserNode: n, ClientFramework: c}, nil
+	return &Client{
+		User:            u,
+		PWD:             "/",
+		UserNode:        n,
+		ClientFramework: c,
+		QueryCache:      make(map[string]*tpUser.User),
+	}, nil
 }
 
-// Sync user info from blockchain
+// Sync user info from blockchain.
 func (c *Client) Sync() error {
 	userBytes, err := c.GetData()
 	if err != nil {
@@ -122,7 +131,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-// User register in the blockchain
+// User register in the blockchain.
 func (c *Client) UserRegister() error {
 	_, err := c.Register(c.Name)
 	if err != nil {
@@ -136,7 +145,7 @@ func (c *Client) UserRegister() error {
 	return c.Sync()
 }
 
-// Fix Operation path
+// Fix Operation path.
 func (c *Client) fixPath(p string) string {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -145,6 +154,14 @@ func (c *Client) fixPath(p string) string {
 		p += "/"
 	}
 	return p
+}
+
+// Split path and name.
+func (c *Client) splitPathName(p string) (string, string) {
+	pathParams := strings.Split(c.fixPath(p), "/")
+	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
+	name := pathParams[len(pathParams)-2]
+	return p, name
 }
 
 // Change Operation PWD
@@ -165,17 +182,13 @@ func (c *Client) GetSize() int64 {
 
 // Get iNode of the path in home directory
 func (c *Client) GetINode(p string) (tpStorage.INode, error) {
-	pathParams := strings.Split(c.fixPath(p), "/")
-	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(p)
 	return c.User.Root.GetINode(p, name)
 }
 
 // Get iNode of the path in shared directory
 func (c *Client) GetSharedINode(p string) (tpStorage.INode, error) {
-	pathParams := strings.Split(c.fixPath(p), "/")
-	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(p)
 	return c.User.Root.GetSharedINode(p, name)
 }
 
@@ -216,7 +229,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		return nil, err
 	}
 
-	seas, err := lib.ListSeasPublicKey("", 20)
+	seas, err := lib.ListSeasPublicKey("", lib.DefaultQueryLimit)
 	if err != nil || len(seas) == 0 {
 		return nil, err
 	}
@@ -277,10 +290,7 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 
 // Rename the file or directory
 func (c *Client) Rename(src, newName string) (map[string]interface{}, error) {
-	src = c.fixPath(src)
-	pathParams := strings.Split(src, "/")
-	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(src)
 	err := c.User.Root.UpdateName(p, name, newName)
 	if err != nil {
 		return nil, err
@@ -306,10 +316,7 @@ func (c *Client) ListSharedDirectory(p string) ([]tpStorage.INodeInfo, error) {
 
 // Delete the directory of the path
 func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
-	p = c.fixPath(p)
-	pathParams := strings.Split(p, "/")
-	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(p)
 	seaOperations, err := c.User.Root.DeleteDirectory(p, name, true)
 	if err != nil {
 		return nil, err
@@ -329,10 +336,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 
 // Delete the file of the path
 func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
-	p = c.fixPath(p)
-	pathParams := strings.Split(p, "/")
-	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(p)
 	seaOperations, err := c.User.Root.DeleteFile(p, name, true)
 	if err != nil {
 		return nil, err
@@ -352,11 +356,8 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 
 // Move file or directory to new path
 func (c *Client) Move(src, dst string) (map[string]interface{}, error) {
-	src = c.fixPath(src)
 	dst = c.fixPath(dst)
-	pathParams := strings.Split(src, "/")
-	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(src)
 	err := c.User.Root.Move(p, name, dst)
 	if err != nil {
 		return nil, err
@@ -567,11 +568,8 @@ func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 
 // Share Files
 func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]interface{}, error) {
-	src = c.fixPath(src)
 	dst = c.fixPath(dst)
-	pathParams := strings.Split(src, "/")
-	p := strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
-	name := pathParams[len(pathParams)-2]
+	p, name := c.splitPathName(src)
 	seaOperations, keys, err := c.User.Root.ShareFiles(p, name, dst, true)
 	if err != nil {
 		return nil, nil, err
@@ -587,4 +585,82 @@ func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]inte
 		Target: []string{name, dst},
 	}}, addresses, addresses, lib.DefaultWait)
 	return keys, response, err
+}
+
+// List users of shared files.
+func (c *Client) ListUsersShared(other bool) error {
+	if len(c.QueryCache) == 0 {
+		users, err := lib.ListUsers("", lib.DefaultQueryLimit)
+		if err != nil {
+			return err
+		}
+		for _, u := range users {
+			m := u.(map[string]interface{})
+			userBytes, err := base64.StdEncoding.DecodeString(m["data"].(string))
+			if err != nil {
+				continue
+			}
+			u, err := tpUser.UserFromBytes(userBytes)
+			if err != nil {
+				continue
+			}
+			c.QueryCache[m["address"].(string)] = u
+		}
+	} else if other {
+		users, err := lib.ListUsers(c.lastQueryEnd, lib.DefaultQueryLimit+1)
+		if err != nil {
+			return err
+		}
+		for k := range c.QueryCache {
+			delete(c.QueryCache, k)
+		}
+		for i := 1; i < len(users); i++ {
+			m := users[i].(map[string]interface{})
+			userBytes, err := base64.StdEncoding.DecodeString(m["data"].(string))
+			if err != nil {
+				continue
+			}
+			u, err := tpUser.UserFromBytes(userBytes)
+			if err != nil {
+				continue
+			}
+			c.QueryCache[m["address"].(string)] = u
+		}
+	}
+	return nil
+}
+
+// List user's shared directory.
+func (c *Client) ListOtherSharedDirectory(owner, p string) ([]tpStorage.INodeInfo, error) {
+	u, err := c.checkUser(owner)
+	if err != nil {
+		return nil, err
+	}
+	return u.Root.ListSharedDirectory(p)
+}
+
+// Get iNode of user's shared files.
+func (c *Client) GetOtherSharedINode(owner, p string) (tpStorage.INode, error) {
+	u, err := c.checkUser(owner)
+	if err != nil {
+		return nil, err
+	}
+	p, name := c.splitPathName(p)
+	return u.Root.GetSharedINode(p, name)
+}
+
+func (c *Client) checkUser(addr string) (*tpUser.User, error) {
+	u, ok := c.QueryCache[addr]
+	if !ok {
+		userBytes, err := lib.GetStateData(addr)
+		if err != nil {
+			return nil, err
+		}
+		u, err = tpUser.UserFromBytes(userBytes)
+		if err != nil {
+			return nil, err
+		}
+		c.QueryCache[addr] = u
+	}
+	return u, nil
 }
