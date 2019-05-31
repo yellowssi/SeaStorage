@@ -1,3 +1,17 @@
+// Copyright © 2019 yellowsea <hh1271941291@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package lib
 
 import (
@@ -24,28 +38,34 @@ import (
 	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 )
 
+// The Category of ClientFramework.
 const (
 	ClientCategoryUser = true
 	ClientCategorySea  = false
 )
 
+// The status of Hyperledger Sawtooth transaction.
 const (
 	StatusPending   = "PENDING"
 	StatusCommitted = "COMMITTED"
 	StatusInvalid   = "INVALID"
 )
 
+// The error response of Hyperledger Sawtooth transaction.
 var (
 	TransactionNotCommittedError = errors.New("waiting for committed")
 	TransactionInvalidError      = errors.New("invalid transaction")
 )
 
+// The Client Framework for both user and sea.
+// ClientFramework provides SeaStorage base operations for both user and sea.
 type ClientFramework struct {
-	Name     string
-	Category bool // true: User, false: Sea
+	Name     string          // The name of user or sea.
+	Category bool            // The category of client framework.
 	signer   *signing.Signer
 }
 
+// Generate new ClientFramework. The construct of ClientFramework struct.
 func NewClientFramework(name string, category bool, keyFile string) (*ClientFramework, error) {
 	if name == "" {
 		return nil, errors.New("need a valid name")
@@ -65,6 +85,7 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 	return &ClientFramework{Name: name, Category: category, signer: signer}, nil
 }
 
+// Register user or sea. Create user or sea in the blockchain.
 func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
 	var seaStoragePayload tpPayload.SeaStoragePayload
 	if cf.Category {
@@ -85,6 +106,7 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 }
 
+// Get user or sea's information from the blockchain.
 func (cf *ClientFramework) GetData() ([]byte, error) {
 	apiSuffix := fmt.Sprintf("%s/%s", StateApi, cf.GetAddress())
 	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
@@ -102,6 +124,45 @@ func (cf *ClientFramework) GetData() ([]byte, error) {
 	return decodedBytes, nil
 }
 
+// Get the address of user or sea using for storing information in the blockchain.
+func (cf *ClientFramework) GetAddress() string {
+	if cf.Category {
+		return tpState.MakeAddress(tpState.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
+	} else {
+		return tpState.MakeAddress(tpState.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
+	}
+}
+
+// Get the public key (Secp256k1) of user or sea.
+func (cf *ClientFramework) GetPublicKey() string {
+	return cf.signer.GetPublicKey().AsHex()
+}
+
+// Generate file fragment store operation and sign it.
+func (cf *ClientFramework) GenerateOperation(sea, path, name, hash string, size int64) *tpUser.Operation {
+	packages := time.Duration(math.Ceil(float64(size) / float64(PackageSize)))
+	timestamp := time.Now().Add(packages * time.Hour).Unix()
+	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), sea, path, name, hash, size, timestamp, *cf.signer)
+}
+
+// Display user or sea's information.
+func (cf *ClientFramework) Whoami() {
+	if cf.Category {
+		fmt.Println("User name: " + cf.Name)
+	} else {
+		fmt.Println("Sea name: " + cf.Name)
+	}
+	fmt.Println("Public key: " + cf.signer.GetPublicKey().AsHex())
+	fmt.Println("Sawtooth address: " + cf.GetAddress())
+}
+
+// Decrypt the key using for encrypting file by private key.
+func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
+	privateKey, _ := ioutil.ReadFile(KeyFile)
+	return tpCrypto.Decryption(string(privateKey), key)
+}
+
+// Get the status of sent batch.
 func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
@@ -114,6 +175,7 @@ func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]inte
 	return entry, nil
 }
 
+// Send the payloads' transaction to the blockchain by sending batch.
 func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
@@ -182,18 +244,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	return sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
 }
 
-func (cf *ClientFramework) GetAddress() string {
-	if cf.Category {
-		return tpState.MakeAddress(tpState.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
-	} else {
-		return tpState.MakeAddress(tpState.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
-	}
-}
-
-func (cf *ClientFramework) GetPublicKey() string {
-	return cf.signer.GetPublicKey().AsHex()
-}
-
+// Create batches for sending transaction.
 func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
 	// Get list of TransactionHeader signatures
 	var transactionSignatures []string
@@ -253,27 +304,7 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 //func (c *ClientFramework) subscribingToEvents(action string, id string) error {
 //}
 
-func (cf *ClientFramework) GenerateOperation(sea, path, name, hash string, size int64) *tpUser.Operation {
-	packages := time.Duration(math.Ceil(float64(size) / float64(PackageSize)))
-	timestamp := time.Now().Add(packages * time.Hour).Unix()
-	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), sea, path, name, hash, size, timestamp, *cf.signer)
-}
-
-func (cf *ClientFramework) Whoami() {
-	if cf.Category {
-		fmt.Println("User name: " + cf.Name)
-	} else {
-		fmt.Println("Sea name: " + cf.Name)
-	}
-	fmt.Println("Public key: " + cf.signer.GetPublicKey().AsHex())
-	fmt.Println("Sawtooth address: " + cf.GetAddress())
-}
-
-func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
-	privateKey, _ := ioutil.ReadFile(KeyFile)
-	return tpCrypto.Decryption(string(privateKey), key)
-}
-
+// Generate (Secp256k1) key pair and store in the path.
 func GenerateKey(keyName string, keyPath string) {
 	cont := signing.NewSecp256k1Context()
 	pri := cont.NewRandomPrivateKey()
@@ -294,6 +325,7 @@ func GenerateKey(keyName string, keyPath string) {
 	}
 }
 
+// Display the response of blockchain.
 func PrintResponse(response map[string]interface{}) {
 	data, err := json.MarshalIndent(response, "", "\t")
 	if err != nil {

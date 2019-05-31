@@ -12,11 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
-
-import "github.com/manifoldco/promptui"
-
-var commandTemplates = &promptui.PromptTemplates{
-	Success:         `{{ . | cyan }}`,
-	ValidationError: `{{ . | red }}`,
-}
+// 
+package p2p

@@ -1,3 +1,18 @@
+// Copyright © 2019 yellowsea <hh1271941291@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
 package lib
 
 import (
@@ -12,6 +27,8 @@ import (
 
 	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
+	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
+	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
 )
 
 func list(address, start string, limit uint) (result []interface{}, err error) {
@@ -29,18 +46,45 @@ func list(address, start string, limit uint) (result []interface{}, err error) {
 	return response["data"].([]interface{}), nil
 }
 
+// Get the list of data that address starting with family address.
 func ListAll(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace, start, limit)
 }
 
+// Get the list of user's data.
 func ListUsers(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.UserNamespace, start, limit)
 }
 
+// Get the list of user's storage root. Using for listing the shared files.
+func ListUserRoot(start string, limit uint) ([]tpStorage.Root, error) {
+	users, err := ListUsers(start, limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]tpStorage.Root, 0)
+	for i := range users {
+		uBytes, err := base64.StdEncoding.DecodeString(users[i].(map[string]interface{})["data"].(string))
+		if err != nil {
+			return nil, err
+		}
+		u, err := tpUser.UserFromBytes(uBytes)
+		if err != nil {
+			return nil, err
+		}
+		if u.Root.Share.Size > 0 {
+			result = append(result, *u.Root)
+		}
+	}
+	return result, nil
+}
+
+// Get the list of sea's data.
 func ListSeas(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.SeaNamespace, start, limit)
 }
 
+// Get the list of sea's public key. Using for searching storage node.
 func ListSeasPublicKey(start string, limit uint) ([]string, error) {
 	seas, err := ListSeas(start, limit)
 	if err != nil {

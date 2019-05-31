@@ -1,3 +1,19 @@
+// Copyright © 2019 yellowsea <hh1271941291@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package crypto provides the file utilities. Use this package's utilities
+// to prepare for uploading file and get data from downloaded files.
 package crypto
 
 import (
@@ -26,7 +42,10 @@ func init() {
 	}
 }
 
-// Generate the information of file for SeaStorage file system
+// Generate the information of file for SeaStorage file system.
+// If the size of file smaller than the default large file size limitation,
+// the file will be split using RS erasure coding,
+// else the file will keep origin
 func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
 	// File Encrypt
 	inFile, err := os.Open(target)
@@ -122,7 +141,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	return
 }
 
-// AES CTR File Encryption
+// Encrypt file using AES-CTR. After encryption, calculate the hash of file.
 func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -162,7 +181,7 @@ func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err erro
 	return
 }
 
-// AES CTR File Decryption
+// Decrypt file using AES-CTR. After decryption, calculate the hash of file.
 func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -194,7 +213,8 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 	return
 }
 
-// Reed-solomon Erasure Coding Split File
+// Split file using Reed-solomon erasure coding.
+// After split, calculate each fragment's infos (hash & size).
 func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hashes []string, fragmentSize int64, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -266,7 +286,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	return
 }
 
-// Reed-solomon Erasure Coding Merge File
+// Merge file using Reed-solomon erasure coding.
 func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, dataShards, parShards int) error {
 	if len(hashes) != dataShards+parShards {
 		return errors.New("the length of hash is not equal to shards")
@@ -347,7 +367,7 @@ func openInput(inPath string, hashes []string, dataShards, parShards int) (r []i
 	return shards, size, nil
 }
 
-// Calculate the hash of file
+// Calculate the hash of file.
 func CalFileHash(f *os.File) (hash string, err error) {
 	info, err := f.Stat()
 	if err != nil {
