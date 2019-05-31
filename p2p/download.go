@@ -42,15 +42,18 @@ const (
 	downloadConfirm  = "/SeaStorage/download/confirm/1.0.0"
 )
 
+// seaDownloadInfo is used for tag of user download request.
 type seaDownloadInfo struct {
 	src      *os.File
 	packages int64
 }
 
+// SeaDownloadProtocol provides listener for download request protobuf and sending download response protobuf.
 type SeaDownloadProtocol struct {
 	node *SeaNode
 }
 
+// NewSeaDownloadProtocol is the construct for SeaDownloadProtocol.
 func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	p := &SeaDownloadProtocol{
 		node: node,
@@ -59,6 +62,7 @@ func NewSeaDownloadProtocol(node *SeaNode) *SeaDownloadProtocol {
 	return p
 }
 
+// onDownloadRequest listen for the download request protobuf.
 func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 	data := &pb.DownloadRequest{}
 	buf, err := ioutil.ReadAll(s)
@@ -106,7 +110,8 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 	}
 }
 
-func (p *SeaDownloadProtocol) sendDownload(peerId p2pPeer.ID, messageId, peerPub, owner, hash string) error {
+// sendDownload begin to send file.
+func (p *SeaDownloadProtocol) sendDownload(peerID p2pPeer.ID, messageID, peerPub, owner, hash string) error {
 	var filename string
 	if owner != "" {
 		filename = path.Join(p.node.storagePath, owner, "shared", hash)
@@ -123,36 +128,54 @@ func (p *SeaDownloadProtocol) sendDownload(peerId p2pPeer.ID, messageId, peerPub
 	}
 	packages := int64(math.Ceil(float64(stat.Size()) / float64(lib.PackageSize)))
 	p.node.downloadInfos.Lock()
-	peerSrcs, ok := p.node.downloadInfos.m[peerId]
+	peerSrcs, ok := p.node.downloadInfos.m[peerID]
 	if ok {
 		peerSrcs[hash] = &seaDownloadInfo{
 			src:      src,
 			packages: packages,
 		}
 	} else {
-		p.node.downloadInfos.m[peerId] = map[string]*seaDownloadInfo{hash: {
+		p.node.downloadInfos.m[peerID] = map[string]*seaDownloadInfo{hash: {
 			src:      src,
 			packages: packages,
 		}}
 	}
 	p.node.downloadInfos.Unlock()
+	succeed := int64(0)
 	for i := int64(0); i <= packages; i++ {
-		err := p.sendPackage(peerId, messageId, peerPub, hash, i)
+		err = p.sendPackage(peerID, messageID, peerPub, hash, i)
 		if err != nil {
-			err = p.sendPackage(peerId, messageId, peerPub, hash, i)
+			lib.Logger.WithFields(logrus.Fields{
+				"type":      "download response",
+				"to":        peerID,
+				"hash":      hash,
+				"packageId": i,
+			}).Errorf("failed to sent protobuf: %v", err)
+		} else {
+			lib.Logger.WithFields(logrus.Fields{
+				"type":      "download response",
+				"to":        peerID,
+				"hash":      hash,
+				"packageId": i,
+			}).Info("sent success")
+			succeed++
 		}
 	}
-	return err
+	if succeed != packages {
+		return errors.New("failed to send packages")
+	}
+	return nil
 }
 
-func (p *SeaDownloadProtocol) sendPackage(peerId p2pPeer.ID, messageId, peerPub, hash string, id int64) error {
+// sendPackage send the packages of file.
+func (p *SeaDownloadProtocol) sendPackage(peerID p2pPeer.ID, messageID, peerPub, hash string, id int64) error {
 	var req *pb.DownloadResponse
 	p.node.downloadInfos.Lock()
-	downloadInfo := p.node.downloadInfos.m[peerId][hash]
+	downloadInfo := p.node.downloadInfos.m[peerID][hash]
 	p.node.downloadInfos.Unlock()
 	if id == downloadInfo.packages {
 		req = &pb.DownloadResponse{
-			MessageData: p.node.NewMessageData(messageId, true),
+			MessageData: p.node.NewMessageData(messageID, true),
 			PackageId:   id,
 			Hash:        hash,
 			Data:        nil,
@@ -164,7 +187,7 @@ func (p *SeaDownloadProtocol) sendPackage(peerId p2pPeer.ID, messageId, peerPub,
 			return err
 		}
 		req = &pb.DownloadResponse{
-			MessageData: p.node.NewMessageData(messageId, true),
+			MessageData: p.node.NewMessageData(messageID, true),
 			PackageId:   id,
 			Hash:        hash,
 			Data:        buf[:n],
@@ -175,28 +198,26 @@ func (p *SeaDownloadProtocol) sendPackage(peerId p2pPeer.ID, messageId, peerPub,
 		return err
 	}
 	req.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, downloadResponse, req)
-	if ok {
-		lib.Logger.WithFields(logrus.Fields{
-			"type": "download response",
-			"to":   peerId,
-			"data": req.String(),
-		}).Info("sent success")
-		return nil
+	ok := p.node.sendProtoMessage(peerID, downloadResponse, req)
+	if !ok {
+		return errors.New("failed to send proto message")
 	}
-	return errors.New("failed to send download response protocol")
+	return nil
 }
 
+// SeaDownloadConfirmProtocol provides listener for download confirm protobuf.
 type SeaDownloadConfirmProtocol struct {
 	node *SeaNode
 }
 
+// NewSeaDownloadConfirmProtocol is the construct for SeaDownloadConfirmProtocol
 func NewSeaDownloadConfirmProtocol(node *SeaNode) *SeaDownloadConfirmProtocol {
 	p := &SeaDownloadConfirmProtocol{node: node}
 	node.SetStreamHandler(downloadConfirm, p.onDownloadConfirm)
 	return p
 }
 
+// onDownloadConfirm listen for the download confirm protocol.
 func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 	data := &pb.DownloadConfirm{}
 	buf, err := ioutil.ReadAll(s)
@@ -262,6 +283,7 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 	}
 }
 
+// userDownloadInfo is used for tag for user download request
 type userDownloadInfo struct {
 	sync.RWMutex
 	downloading int
@@ -270,10 +292,12 @@ type userDownloadInfo struct {
 	done        chan error
 }
 
+// UserDownloadProtocol provides sending download request protobuf and listener for download response protobuf.
 type UserDownloadProtocol struct {
 	node *UserNode
 }
 
+// NewUserDownloadProtocol is the construct for UserDownloadProtocol
 func NewUserDownloadProtocol(node *UserNode) *UserDownloadProtocol {
 	d := &UserDownloadProtocol{
 		node: node,
@@ -282,6 +306,7 @@ func NewUserDownloadProtocol(node *UserNode) *UserDownloadProtocol {
 	return d
 }
 
+// onDownloadResponse listen for download response protobuf
 func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 	data := &pb.DownloadResponse{}
 	buf, err := ioutil.ReadAll(s)
@@ -352,10 +377,22 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 				if os.IsNotExist(err) {
 					err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, i)
 					if err != nil {
-						err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, i)
+						lib.Logger.WithFields(logrus.Fields{
+							"type":      "download confirm",
+							"to":        s.Conn().RemotePeer().String(),
+							"hash":      data.Hash,
+							"packageId": i,
+						}).Errorf("failed to sent: %v", err)
+					} else {
+						lib.Logger.WithFields(logrus.Fields{
+							"type":      "download confirm",
+							"to":        s.Conn().RemotePeer().String(),
+							"hash":      data.Hash,
+							"packageId": i,
+						}).Info("sent success")
 					}
 				} else {
-					downloadInfo.done <- errors.New(fmt.Sprintf("failed to read fragment: %s", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10))))
+					downloadInfo.done <- fmt.Errorf("failed to read fragment: %s", path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(i, 10)))
 				}
 				return
 			}
@@ -363,7 +400,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		}
 		err = f.Truncate(downloadInfo.size)
 		if err != nil {
-			downloadInfo.done <- errors.New(fmt.Sprintf("failed to truncate file: %s", targetFile))
+			downloadInfo.done <- fmt.Errorf("failed to truncate file: %s", targetFile)
 			f.Close()
 			os.Remove(targetFile)
 			return
@@ -373,24 +410,33 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
-			downloadInfo.done <- errors.New(fmt.Sprintf("failed to open file: %s", targetFile))
+			downloadInfo.done <- fmt.Errorf("failed to open file: %s", targetFile)
 			return
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			downloadInfo.done <- errors.New(fmt.Sprintf("failed to calculate file pubHash: %s", targetFile))
+			downloadInfo.done <- fmt.Errorf("failed to calculate file pubHash: %s", targetFile)
 			return
 		}
 		if hash != data.Hash {
-			downloadInfo.done <- errors.New(fmt.Sprintf("pubHash is invalid: %s", targetFile))
+			downloadInfo.done <- fmt.Errorf("pubHash is invalid: %s", targetFile)
 			return
 		}
 		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
 		if err != nil {
-			err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
-			if err != nil {
-				lib.Logger.Warn("failed to send confirm")
-			}
+			lib.Logger.WithFields(logrus.Fields{
+				"type":      "download confirm",
+				"to":        s.Conn().RemotePeer().String(),
+				"hash":      data.Hash,
+				"packageId": data.PackageId,
+			}).Errorf("failed to sent: %v", err)
+		} else {
+			lib.Logger.WithFields(logrus.Fields{
+				"type":      "download confirm",
+				"to":        s.Conn().RemotePeer().String(),
+				"hash":      data.Hash,
+				"packageId": data.PackageId,
+			}).Info("sent success")
 		}
 		downloadInfo.done <- nil
 	} else {
@@ -406,12 +452,12 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		filename := path.Join(lib.DefaultTmpPath, data.Hash, data.Hash+"-"+strconv.FormatInt(data.PackageId, 10))
 		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			downloadInfo.done <- errors.New(fmt.Sprintf("failed to open file: %s", filename))
+			downloadInfo.done <- fmt.Errorf("failed to open file: %s", filename)
 			return
 		}
 		_, err = f.Write(data.Data)
 		if err != nil {
-			downloadInfo.done <- errors.New(fmt.Sprintf("failed to write data to file: %s", filename))
+			downloadInfo.done <- fmt.Errorf("failed to write data to file: %s", filename)
 			return
 		}
 		downloadInfo.Lock()
@@ -420,7 +466,8 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 	}
 }
 
-func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, owner, hash string, size int64) error {
+// SendDownloadProtocol tag the information of download request then send it.
+func (p *UserDownloadProtocol) SendDownloadProtocol(peerID p2pPeer.ID, dst, owner, hash string, size int64) error {
 	done := make(chan error)
 	p.node.downloadInfos.Lock()
 	p.node.downloadInfos.m[hash] = &userDownloadInfo{
@@ -439,9 +486,9 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, owne
 		return err
 	}
 	req.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, downloadRequest, req)
+	ok := p.node.sendProtoMessage(peerID, downloadRequest, req)
 	if !ok {
-		ok = p.node.sendProtoMessage(peerId, downloadRequest, req)
+		ok = p.node.sendProtoMessage(peerID, downloadRequest, req)
 		if !ok {
 			return errors.New("failed to send download protocol")
 		}
@@ -453,9 +500,10 @@ func (p *UserDownloadProtocol) SendDownloadProtocol(peerId p2pPeer.ID, dst, owne
 	return err
 }
 
-func (p *UserDownloadProtocol) sendDownloadConfirm(peerId p2pPeer.ID, messageId, hash string, id int64) error {
+// sendDownloadConfirm send the download confirm protobuf
+func (p *UserDownloadProtocol) sendDownloadConfirm(peerID p2pPeer.ID, messageID, hash string, id int64) error {
 	req := &pb.DownloadConfirm{
-		MessageData: p.node.NewMessageData(messageId, true),
+		MessageData: p.node.NewMessageData(messageID, true),
 		Hash:        hash,
 		PackageId:   id,
 	}
@@ -464,9 +512,9 @@ func (p *UserDownloadProtocol) sendDownloadConfirm(peerId p2pPeer.ID, messageId,
 		return err
 	}
 	req.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, downloadConfirm, req)
+	ok := p.node.sendProtoMessage(peerID, downloadConfirm, req)
 	if !ok {
-		ok = p.node.sendProtoMessage(peerId, downloadConfirm, req)
+		ok = p.node.sendProtoMessage(peerID, downloadConfirm, req)
 		if !ok {
 			return errors.New("failed to send download confirm protocol")
 		}

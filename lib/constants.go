@@ -24,57 +24,96 @@ import (
 )
 
 var (
-	TPURL          string
-	StoragePath    string
-	StorageSize    int64
-	ListenAddress  string
-	ListenPort     int
+	// TPURL is the Hyperledger Sawtooth rest api url
+	TPURL string
+	// StoragePath is the path that provided storage resources by sea.
+	StoragePath string
+	// StorageSize is the limit size of the storage resources.
+	StorageSize int64
+	// ListenAddress is the address used for joining P2P network and listening for protobuf.
+	ListenAddress string
+	// ListenPort is the port for the P2P Network protobuf listener.
+	ListenPort int
+	// BootstrapAddrs is the addresses in the P2P Network. These addresses are using for node joining P2P Network.
 	BootstrapAddrs []ma.Multiaddr
 )
 
 const (
 	// Config Variable
-	FamilyName            string = "SeaStorage"
-	FamilyVersion         string = "1.0.0"
-	DefaultTmpPath        string = "/tmp/SeaStorage"
-	DefaultWait           uint   = 60
-	DefaultQueryLimit     uint   = 20
-	AESKeySize            int    = 256
-	EncryptSuffix         string = ".enc"
-	DefaultDataShards     int    = 5
-	DefaultParShards      int    = 3
+
+	// FamilyName is the SeaStorage's transaction identity.
+	FamilyName string = "SeaStorage"
+	// FamilyVersion is the version of SeaStorage's transaction.
+	FamilyVersion string = "1.0.0"
+	// DefaultTmpPath is used for storing temp file.
+	DefaultTmpPath string = "/tmp/SeaStorage"
+	// DefaultWait is the waiting time for batch commits.
+	DefaultWait uint = 60
+	// DefaultQueryLimit is the limit of state queries.
+	DefaultQueryLimit uint = 20
+	// EncryptSuffix is the encrypted file's suffix.
+	EncryptSuffix string = ".enc"
+	// DefaultDataShards is the number of data shard in RS erasure coding.
+	DefaultDataShards int = 5
+	// DefaultParShards is the number of parity shard in RS erasure coding.
+	DefaultParShards int = 3
+	// DefaultConfigFilename is the config filename.
 	DefaultConfigFilename string = "config"
-	PackageSize           int64  = 128 * 1024 * 1024
-	BigFileSize           int64  = 1024 * 1024 * 1024
+	// PackageSize is the limit of each package's max size.
+	PackageSize int64 = 128 * 1024 * 1024
+	// LargeFileSize is the limit of max file size for RS erasure coding using.
+	LargeFileSize int64 = 1024 * 1024 * 1024
 	// Content types
+
+	// ContentTypeOctetStream is the content type for request.
 	ContentTypeOctetStream string = "application/octet-stream"
-	ContentTypeJson        string = "application/json"
+	// ContentTypeJSON is the content type for request.
+	ContentTypeJSON string = "application/json"
 	// APIs
-	BatchSubmitApi string = "batches"
-	BatchStatusApi string = "batch_statuses"
-	StateApi       string = "state"
-	// AES CTR
-	IvSize     = aes.BlockSize
+
+	// BatchSubmitAPI is the api for batch submission.
+	BatchSubmitAPI string = "batches"
+	// BatchStatusAPI is the api for getting batches' status.
+	BatchStatusAPI string = "batch_statuses"
+	// StateAPI is the api for getting data stored in the blockchain.
+	StateAPI string = "state"
+	// AES-CTR
+
+	// AESKeySize is the size of AES key.
+	AESKeySize int = 256
+	// IvSize is the AES-CTR iv's size.
+	IvSize = aes.BlockSize
+	// BufferSize is the size for encryption.
 	BufferSize = 4096
 )
 
 var (
+	// Logger provides log function.
 	Logger                *logrus.Logger
+	// DefaultTPURL is the default Hyperledger Sawtooth rest api.
 	DefaultTPURL                = "http://101.132.168.252:8008"
-	DefaultStorageSize    int64 = 1024 * 1024 * 1024
+	// DefaultListenAddress is the default listen address for P2P network node.
 	DefaultListenAddress        = "0.0.0.0"
+	// DefaultListenPort is the default listen port for P2P network node.
 	DefaultListenPort           = 5001
-	KeyFile               string
+	// PrivateKeyFile is the path of private key.
+	PrivateKeyFile        string
+	// DefaultKeyPath is the default path for key storing.
 	DefaultKeyPath        string
-	DefaultKeyFile        string
+	// DefaultPrivateKeyFile is the default path of private key.
+	DefaultPrivateKeyFile string
+	// DefaultConfigPath is the default path for config storing.
 	DefaultConfigPath     string
+	// DefaultStoragePath is the default path for providing storage resources.
 	DefaultStoragePath    string
+	// DefaultStorageSize is the default limit size of storage resources.
+	DefaultStorageSize int64 = 1024 * 1024 * 1024
+	// DefaultLogPath is the default path for log storing.
 	DefaultLogPath        string
-	DefaultBootstrapAddrs = []string{
+	// DefaultBootstrapAddrs is the default addresses for joining P2P network.
+	DefaultBootstrapAddrs   = []string{
 		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
 		"/ip4/101.132.168.252/tcp/5001/p2p/16Uiu2HAmHoT7LJpqYhZfLddG6Gu7WBkHh44cMiGp1FgCjPjbhEkA",
-		//"/ip4/192.168.31.99/tcp/5001/p2p/16Uiu2HAm2Ckrip9389C25mrcMrMRDxeasADmd2sGgcLBbgfTD8F2",
-		//"/ip4/192.168.31.200/tcp/5001/p2p/16Uiu2HAkyEDMPbbAwVSoC6nav6bsCKM13C5D1TBDEZwSr4pkg3WR",
 	}
 )
 
@@ -86,7 +125,7 @@ func init() {
 	homeDir := u.HomeDir
 	DefaultConfigPath = path.Join(homeDir, ".SeaStorage")
 	DefaultKeyPath = path.Join(DefaultConfigPath, "keys")
-	DefaultKeyFile = path.Join(DefaultKeyPath, "SeaStorage.priv")
+	DefaultPrivateKeyFile = path.Join(DefaultKeyPath, "SeaStorage.priv")
 	DefaultStoragePath = path.Join(DefaultConfigPath, "storage")
 	DefaultLogPath = path.Join(DefaultConfigPath, "log")
 }

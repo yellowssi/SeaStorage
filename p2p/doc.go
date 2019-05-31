@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// 
+// Package p2p provides the parallel file transport in the P2P network.
 package p2p

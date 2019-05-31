@@ -27,14 +27,16 @@ import (
 // seaCmd represents the sea command
 var seaCmd = &cobra.Command{
 	Use:   "sea",
-	Short: "A brief description of your command",
-	Long:  ``,
+	Short: "SeaStorage Sea Command Client",
+	Long:  `SeaStorage Sea Command Client is a platform support
+communicating with the transaction processor
+and listening for the P2P network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if name == "" {
 			fmt.Println(errors.New("the name of user/sea is required"))
 			os.Exit(0)
 		}
-		cli, err := sea.NewSeaClient(name, lib.KeyFile)
+		cli, err := sea.NewSeaClient(name, lib.PrivateKeyFile)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -47,7 +49,7 @@ var seaCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		}
-		cli.Bootstrap(lib.KeyFile, lib.StoragePath, lib.StorageSize, lib.BootstrapAddrs)
+		cli.Bootstrap(lib.PrivateKeyFile, lib.StoragePath, lib.StorageSize, lib.BootstrapAddrs)
 	},
 }
 

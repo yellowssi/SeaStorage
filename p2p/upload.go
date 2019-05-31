@@ -16,6 +16,7 @@ package p2p
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -47,17 +48,20 @@ const (
  * Sea Upload Handler
  */
 
+// seaUploadInfo is used for tag of upload
 type seaUploadInfo struct {
 	sync.RWMutex
 	downloading int
-	query       *pb.UploadQueryRequest
+	size 		int64
 	hash        string
 }
 
+// SeaUploadQueryProtocol provides listener for upload query request protobuf and sending upload query response protobuf.
 type SeaUploadQueryProtocol struct {
 	node *SeaNode
 }
 
+// NewSeaUploadQueryProtocol is the construct for SeaUploadQueryProtocol.
 func NewSeaUploadQueryProtocol(node *SeaNode) *SeaUploadQueryProtocol {
 	p := &SeaUploadQueryProtocol{
 		node: node,
@@ -66,6 +70,7 @@ func NewSeaUploadQueryProtocol(node *SeaNode) *SeaUploadQueryProtocol {
 	return p
 }
 
+// onUploadQueryRequest listen for upload query request protobuf.
 func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 	data := &pb.UploadQueryRequest{}
 	buf, err := ioutil.ReadAll(s)
@@ -123,44 +128,54 @@ func (p *SeaUploadQueryProtocol) onUploadQueryRequest(s p2pNet.Stream) {
 		}
 	}
 
-	resp := &pb.UploadQueryResponse{
-		MessageData: p.node.NewMessageData(data.MessageData.Id, false),
-		Tag:         data.Tag,
-	}
-	signature, err := p.node.signProtoMessage(resp)
+	err = p.sendUploadQueryResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.Size)
 	if err != nil {
-		lib.Logger.Error("failed to sign response")
-		return
-	}
-	resp.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(s.Conn().RemotePeer(), uploadQueryResponse, resp)
-	if ok {
-		p.node.uploadInfos.Lock()
-		uploadInfos, ok := p.node.uploadInfos.m[s.Conn().RemotePeer()]
-		if !ok {
-			p.node.uploadInfos.m[s.Conn().RemotePeer()] = map[string]*seaUploadInfo{data.Tag: {query: data}}
-		} else {
-			uploadInfos[data.Tag] = &seaUploadInfo{query: data}
-		}
-		p.node.uploadInfos.Unlock()
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
-			"to":   s.Conn().RemotePeer().String(),
-			"tag":  data.Tag,
-		}).Info("upload query response sent success")
+			"to": s.Conn().RemotePeer().String(),
+			"tag": data.Tag,
+		}).Errorf("failed to sent: %v", err)
 	} else {
 		lib.Logger.WithFields(logrus.Fields{
 			"type": "upload query response",
-			"to":   s.Conn().RemotePeer().String(),
-			"tag":  data.Tag,
-		}).Error("failed to send upload query response")
+			"to": s.Conn().RemotePeer().String(),
+			"tag": data.Tag,
+		}).Info("sent success")
 	}
 }
 
+// sendUploadQueryResponse send upload query response protobuf.
+func (p *SeaUploadQueryProtocol) sendUploadQueryResponse(peerID p2pPeer.ID, messageID, tag string, size int64) error {
+	resp := &pb.UploadQueryResponse{
+		MessageData: p.node.NewMessageData(messageID, false),
+		Tag:         tag,
+	}
+	signature, err := p.node.signProtoMessage(resp)
+	if err != nil {
+		return fmt.Errorf("failed to sign protobuf: %v", err)
+	}
+	resp.MessageData.Sign = signature
+	ok := p.node.sendProtoMessage(peerID, uploadQueryResponse, resp)
+	if !ok {
+		return errors.New("failed to sent proto message")
+	}
+	p.node.uploadInfos.Lock()
+	uploadInfos, ok := p.node.uploadInfos.m[peerID]
+	if !ok {
+		p.node.uploadInfos.m[peerID] = map[string]*seaUploadInfo{tag: {size: size}}
+	} else {
+		uploadInfos[tag] = &seaUploadInfo{size: size}
+	}
+	p.node.uploadInfos.Unlock()
+	return nil
+}
+
+// SeaUploadProtocol provides listener for upload request protobuf and sending upload response protobuf.
 type SeaUploadProtocol struct {
 	node *SeaNode
 }
 
+// NewSeaUploadProtocol is the construct for SeaUploadProtocol.
 func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	p := &SeaUploadProtocol{
 		node: node,
@@ -169,6 +184,7 @@ func NewSeaUploadProtocol(node *SeaNode) *SeaUploadProtocol {
 	return p
 }
 
+// onUploadRequest listen for upload request protobuf.
 func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 	data := &pb.UploadRequest{}
 	buf, err := ioutil.ReadAll(s)
@@ -188,7 +204,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		"type": "upload request",
 		"from": s.Conn().RemotePeer().String(),
 		"tag":  data.Tag,
-	}).Info("received upload request")
+	}).Info("received protobuf")
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
@@ -208,7 +224,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("invalid upload request")
+		}).Warn("invalid protobuf")
 		return
 	}
 	p.node.uploadInfos.Lock()
@@ -219,7 +235,7 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 			"type": "upload request",
 			"from": s.Conn().RemotePeer().String(),
 			"tag":  data.Tag,
-		}).Warn("invalid upload request")
+		}).Warn("invalid protobuf")
 		return
 	}
 
@@ -248,7 +264,19 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 				if os.IsNotExist(err) {
 					err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, "", i)
 					if err != nil {
-						err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, "", i)
+						lib.Logger.WithFields(logrus.Fields{
+							"type": "upload response",
+							"to": s.Conn().RemotePeer().String(),
+							"tag": data.Tag,
+							"packageId": i,
+						}).Errorf("failed to sent: %v", err)
+					} else {
+						lib.Logger.WithFields(logrus.Fields{
+							"type": "upload response",
+							"to": s.Conn().RemotePeer().String(),
+							"tag": data.Tag,
+							"packageId": i,
+						}).Info("sent success")
 					}
 				} else {
 					lib.Logger.Error("failed to read fragment:", path.Join(storagePath, data.Tag+"-"+strconv.FormatInt(i, 10)))
@@ -267,10 +295,10 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		for i := int64(0); i < data.PackageId; i++ {
 			os.Remove(path.Join(storagePath, data.Tag+"-"+strconv.FormatInt(i, 10)))
 		}
-		err = f.Truncate(uploadInfo.query.Size)
+		err = f.Truncate(uploadInfo.size)
 		f.Close()
 		if err != nil {
-			lib.Logger.Error("failed to truncate file:", targetFile)
+			lib.Logger.Errorf("failed to truncate file: %s", targetFile)
 			os.Remove(targetFile)
 			return
 		}
@@ -278,26 +306,29 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		f, err = os.Open(targetFile)
 		defer f.Close()
 		if err != nil {
-			lib.Logger.Error("failed to open file:", targetFile)
+			lib.Logger.Errorf("failed to open file: %s", targetFile)
 			return
 		}
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
-			lib.Logger.Error("failed to calculate file pubHash:", targetFile)
+			lib.Logger.Errorf("failed to calculate file pubHash: %s", targetFile)
 			return
 		}
 		err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
-		if err != nil {
-			err = p.sendUploadResponse(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, hash, data.PackageId)
-		}
 		if err == nil {
+			lib.Logger.WithFields(logrus.Fields{
+				"type": "upload response",
+				"to": s.Conn().RemotePeer().String(),
+				"tag": data.Tag,
+			}).Info("sent success")
 			uploadInfo.hash = hash
 		} else {
 			lib.Logger.WithFields(logrus.Fields{
-				"type": "upload request",
-				"from": s.Conn().RemotePeer().String(),
+				"type": "upload response",
+				"to": s.Conn().RemotePeer().String(),
 				"tag":  data.Tag,
-			}).Error("failed to sent response")
+			}).Error("failed to sent protobuf")
+			// TODO: clean failed file
 		}
 	} else {
 		uploadInfo.Lock()
@@ -319,44 +350,32 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 	}
 }
 
-func (p *SeaUploadProtocol) sendUploadResponse(peerId p2pPeer.ID, messageId, tag, hash string, id int64) error {
+// sendUploadResponse send upload response protobuf.
+func (p *SeaUploadProtocol) sendUploadResponse(peerID p2pPeer.ID, messageID, tag, hash string, id int64) error {
 	resp := &pb.UploadResponse{
-		MessageData: p.node.NewMessageData(messageId, true),
+		MessageData: p.node.NewMessageData(messageID, true),
 		Tag:         tag,
 		PackageId:   id,
 		Hash:        hash,
 	}
 	signature, err := p.node.signProtoMessage(resp)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign proto message: %v", err)
 	}
 	resp.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, uploadResponse, resp)
+	ok := p.node.sendProtoMessage(peerID, uploadResponse, resp)
 	if ok {
-		lib.Logger.WithFields(logrus.Fields{
-			"type":      "upload response",
-			"to":        peerId,
-			"tag":       resp.Tag,
-			"packageId": resp.PackageId,
-			"hash":      resp.Hash,
-		}).Info("upload response sent success")
 		return nil
-	} else {
-		lib.Logger.WithFields(logrus.Fields{
-			"type":      "upload response",
-			"to":        peerId,
-			"tag":       resp.Tag,
-			"packageId": resp.PackageId,
-			"hash":      resp.Hash,
-		}).Error("failed to sent upload response")
-		return errors.New("failed to sent upload response")
 	}
+	return errors.New("failed to sent upload response")
 }
 
+// SeaOperationProtocol provides listener for operation request protobuf.
 type SeaOperationProtocol struct {
 	node *SeaNode
 }
 
+// NewSeaOperationProtocol is the construct for SeaOperationProtocol.
 func NewSeaOperationProtocol(node *SeaNode) *SeaOperationProtocol {
 	p := &SeaOperationProtocol{
 		node: node,
@@ -365,6 +384,7 @@ func NewSeaOperationProtocol(node *SeaNode) *SeaOperationProtocol {
 	return p
 }
 
+// onOperationRequest listen for operation request protobuf.
 func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
 	data := &pb.OperationRequest{}
 	buf, err := ioutil.ReadAll(s)
@@ -450,6 +470,7 @@ func (p *SeaOperationProtocol) onOperationRequest(s p2pNet.Stream) {
  * User Upload Handler
  */
 
+// userUploadInfo is used for tag of upload file
 type userUploadInfo struct {
 	sync.RWMutex
 	src        *os.File
@@ -458,10 +479,12 @@ type userUploadInfo struct {
 	done       chan bool
 }
 
+// UserUploadQueryProtocol provides sending upload query request protobuf.
 type UserUploadQueryProtocol struct {
 	node *UserNode
 }
 
+// NewUserUploadQueryProtocol is the construct for UserUploadQueryProtocol.
 func NewUserUploadQueryProtocol(node *UserNode) *UserUploadQueryProtocol {
 	p := &UserUploadQueryProtocol{
 		node: node,
@@ -470,6 +493,7 @@ func NewUserUploadQueryProtocol(node *UserNode) *UserUploadQueryProtocol {
 	return p
 }
 
+// onUploadQueryResponse listen for upload query response protobuf.
 func (p *UserUploadQueryProtocol) onUploadQueryResponse(s p2pNet.Stream) {
 	data := &pb.UploadQueryResponse{}
 	buf, err := ioutil.ReadAll(s)
@@ -504,7 +528,8 @@ func (p *UserUploadQueryProtocol) onUploadQueryResponse(s p2pNet.Stream) {
 	p.node.sendUpload(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 }
 
-func (p *UserUploadQueryProtocol) SendUploadQuery(peerId p2pPeer.ID, tag string, size int64) error {
+// SendUploadQuery send upload query protobuf.
+func (p *UserUploadQueryProtocol) SendUploadQuery(peerID p2pPeer.ID, tag string, size int64) error {
 	req := &pb.UploadQueryRequest{
 		MessageData: p.node.NewMessageData(uuid.New().String(), true),
 		Tag:         tag,
@@ -516,23 +541,19 @@ func (p *UserUploadQueryProtocol) SendUploadQuery(peerId p2pPeer.ID, tag string,
 	}
 	req.MessageData.Sign = signature
 
-	ok := p.node.sendProtoMessage(peerId, uploadQueryRequest, req)
-	if ok {
-		lib.Logger.WithFields(logrus.Fields{
-			"type": "upload query request",
-			"to":   peerId,
-			"tag":  tag,
-			"size": size,
-		}).Info("upload query request sent")
-		return nil
+	ok := p.node.sendProtoMessage(peerID, uploadQueryRequest, req)
+	if !ok {
+		return errors.New("send proto message failed")
 	}
-	return errors.New("upload query failed")
+	return nil
 }
 
+// UserUploadProtocol provides sending upload request protobuf and listener for upload response protobuf.
 type UserUploadProtocol struct {
 	node *UserNode
 }
 
+// NewUserUploadProtocol is the construct for UserUploadProtocol.
 func NewUserUploadProtocol(node *UserNode) *UserUploadProtocol {
 	p := &UserUploadProtocol{
 		node: node,
@@ -541,6 +562,7 @@ func NewUserUploadProtocol(node *UserNode) *UserUploadProtocol {
 	return p
 }
 
+// onUploadResponse listen for upload response protobuf.
 func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 	data := &pb.UploadResponse{}
 	buf, err := ioutil.ReadAll(s)
@@ -579,36 +601,36 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 		if data.PackageId < uploadInfo.packages {
 			err := p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
 			if err != nil {
-				err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, data.PackageId)
-				if err != nil {
-					lib.Logger.WithFields(logrus.Fields{
-						"type":      "upload request",
-						"to":        s.Conn().RemotePeer().String(),
-						"tag":       data.Tag,
-						"packageId": data.PackageId,
-					}).Warn("failed to send upload request")
-					return
-				}
+				lib.Logger.WithFields(logrus.Fields{
+					"type":      "upload request",
+					"to":        s.Conn().RemotePeer().String(),
+					"tag":       data.Tag,
+					"packageId": data.PackageId,
+				}).Errorf("failed to send protobuf: %v", err)
+				return
 			}
+			lib.Logger.WithFields(logrus.Fields{
+				"type":      "upload request",
+				"to":        s.Conn().RemotePeer().String(),
+				"tag":       data.Tag,
+				"packageId": data.PackageId,
+			}).Info("sent success")
 			err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, uploadInfo.packages)
 			if err != nil {
-				err = p.node.sendPackage(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag, uploadInfo.packages)
-				if err != nil {
-					lib.Logger.WithFields(logrus.Fields{
-						"type":      "upload request",
-						"to":        s.Conn().RemotePeer().String(),
-						"tag":       data.Tag,
-						"packageId": uploadInfo.packages,
-					}).Warn("failed to send upload request")
-				}
+				lib.Logger.WithFields(logrus.Fields{
+					"type":      "upload request",
+					"to":        s.Conn().RemotePeer().String(),
+					"tag":       data.Tag,
+					"packageId": uploadInfo.packages,
+				}).Warn("failed to send upload request")
 				return
 			}
 			lib.Logger.WithFields(logrus.Fields{
 				"type":      "upload response",
 				"from":      s.Conn().RemotePeer().String(),
 				"tag":       data.Tag,
-				"packageId": data.PackageId,
-			}).Info("send upload request success")
+				"packageId": uploadInfo.packages,
+			}).Info("sent success")
 			return
 		} else if data.PackageId == uploadInfo.packages {
 			uploadInfo.Lock()
@@ -617,14 +639,11 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 			if ok && data.Hash == operation.Hash {
 				err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
 				if err != nil {
-					err = p.node.sendOperationProtocol(s.Conn().RemotePeer(), data.MessageData.Id, data.Tag)
-					if err != nil {
-						lib.Logger.WithFields(logrus.Fields{
-							"type": "upload response",
-							"from": s.Conn().RemotePeer().String(),
-							"tag":  data.Tag,
-						}).Warn("failed to send operation request")
-					}
+					lib.Logger.WithFields(logrus.Fields{
+						"type": "operation request",
+						"to": s.Conn().RemotePeer().String(),
+						"tag":  data.Tag,
+					}).Errorf("failed to send protobuf: %v", err)
 				}
 				uploadInfo.Lock()
 				delete(uploadInfo.operations, s.Conn().RemotePeer())
@@ -642,27 +661,28 @@ func (p *UserUploadProtocol) onUploadResponse(s p2pNet.Stream) {
 		"from": s.Conn().RemotePeer().String(),
 		"tag":  data.Tag,
 		"hash": data.Hash,
-	}).Warn("invalid upload response")
+	}).Warn("invalid protobuf")
 }
 
-func (p *UserUploadProtocol) sendUpload(peerId p2pPeer.ID, messageId, tag string) {
+// sendUpload send packages of file.
+func (p *UserUploadProtocol) sendUpload(peerID p2pPeer.ID, messageID, tag string) {
 	p.node.uploadInfos.Lock()
 	uploadInfo, ok := p.node.uploadInfos.m[tag]
 	p.node.uploadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
-			"from": peerId.String(),
+			"from": peerID.String(),
 			"tag":  tag,
 		}).Warn("invalid upload query response")
 		return
 	}
 	for i := int64(0); i <= uploadInfo.packages; i++ {
-		err := p.node.sendPackage(peerId, messageId, tag, i)
+		err := p.node.sendPackage(peerID, messageID, tag, i)
 		if err != nil {
-			err = p.node.sendPackage(peerId, messageId, tag, i)
+			err = p.node.sendPackage(peerID, messageID, tag, i)
 			if err != nil {
 				lib.Logger.WithFields(logrus.Fields{
-					"to":      peerId.String(),
+					"to":      peerID.String(),
 					"tag":     tag,
 					"package": i,
 				}).Warn("failed to sent package")
@@ -671,14 +691,15 @@ func (p *UserUploadProtocol) sendUpload(peerId p2pPeer.ID, messageId, tag string
 	}
 }
 
-func (p *UserUploadProtocol) sendPackage(peerId p2pPeer.ID, messageId, tag string, id int64) error {
+// sendPackage send upload request protobuf.
+func (p *UserUploadProtocol) sendPackage(peerID p2pPeer.ID, messageID, tag string, id int64) error {
 	var req *pb.UploadRequest
 	p.node.uploadInfos.Lock()
 	uploadInfo := p.node.uploadInfos.m[tag]
 	p.node.uploadInfos.Unlock()
 	if id == uploadInfo.packages {
 		req = &pb.UploadRequest{
-			MessageData: p.node.NewMessageData(messageId, true),
+			MessageData: p.node.NewMessageData(messageID, true),
 			PackageId:   id,
 			Tag:         tag,
 			Data:        nil,
@@ -690,7 +711,7 @@ func (p *UserUploadProtocol) sendPackage(peerId p2pPeer.ID, messageId, tag strin
 			return err
 		}
 		req = &pb.UploadRequest{
-			MessageData: p.node.NewMessageData(messageId, true),
+			MessageData: p.node.NewMessageData(messageID, true),
 			PackageId:   id,
 			Tag:         tag,
 			Data:        buf[:n],
@@ -698,40 +719,38 @@ func (p *UserUploadProtocol) sendPackage(peerId p2pPeer.ID, messageId, tag strin
 	}
 	signature, err := p.node.signProtoMessage(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign proto message: %v", err)
 	}
 	req.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, uploadRequest, req)
+	ok := p.node.sendProtoMessage(peerID, uploadRequest, req)
 	if ok {
-		lib.Logger.WithFields(logrus.Fields{
-			"type": "upload request",
-			"to":   peerId,
-			"tag":  tag,
-		}).Info("upload request sent")
 		return nil
 	}
-	return errors.New("failed to send upload request")
+	return errors.New("failed to send proto message")
 }
 
+// UserOperationProtocol provides sending operation request protobuf.
 type UserOperationProtocol struct {
 	node *UserNode
 }
 
+// NewUserOperationProtocol is the construct for UserOperationProtocol.
 func NewUserOperationProtocol(n *UserNode) *UserOperationProtocol {
 	return &UserOperationProtocol{
 		node: n,
 	}
 }
 
-func (p *UserOperationProtocol) sendOperationProtocol(peerId p2pPeer.ID, messageId, tag string) error {
+// sendOperationProtocol send operation request and delete upload info of the tag.
+func (p *UserOperationProtocol) sendOperationProtocol(peerID p2pPeer.ID, messageID, tag string) error {
 	p.node.uploadInfos.Lock()
 	uploadInfoMap := p.node.uploadInfos.m[tag]
 	p.node.uploadInfos.Unlock()
 	uploadInfoMap.Lock()
-	operation := uploadInfoMap.operations[peerId]
+	operation := uploadInfoMap.operations[peerID]
 	uploadInfoMap.Unlock()
 	op := &pb.OperationRequest{
-		MessageData: p.node.NewMessageData(messageId, true),
+		MessageData: p.node.NewMessageData(messageID, true),
 		Tag:         tag,
 		Operation:   operation.ToBytes(),
 	}
@@ -740,15 +759,9 @@ func (p *UserOperationProtocol) sendOperationProtocol(peerId p2pPeer.ID, message
 		return err
 	}
 	op.MessageData.Sign = signature
-	ok := p.node.sendProtoMessage(peerId, uploadOperation, op)
-	if ok {
-		lib.Logger.WithFields(logrus.Fields{
-			"type":      "operation request",
-			"to":        peerId,
-			"tag":       tag,
-			"operation": operation,
-		}).Info("operation request sent success")
-		return nil
+	ok := p.node.sendProtoMessage(peerID, uploadOperation, op)
+	if !ok {
+		return errors.New("failed to send proto message")
 	}
-	return errors.New("failed to send operation request")
+	return nil
 }

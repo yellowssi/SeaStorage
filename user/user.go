@@ -40,6 +40,7 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
 )
 
+// Client provides the platform for user storing files in P2P network.
 type Client struct {
 	User         *tpUser.User
 	PWD          string
@@ -49,6 +50,7 @@ type Client struct {
 	*lib.ClientFramework
 }
 
+// NewUserClient is the construct for User's Client.
 func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client, error) {
 	c, err := lib.NewClientFramework(name, lib.ClientCategoryUser, keyFile)
 	if err != nil {
@@ -117,7 +119,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	}, nil
 }
 
-// Sync user info from blockchain.
+// Sync get user's data from blockchain.
 func (c *Client) Sync() error {
 	userBytes, err := c.GetData()
 	if err != nil {
@@ -131,7 +133,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
-// User register in the blockchain.
+// UserRegister register user in the blockchain.
 func (c *Client) UserRegister() error {
 	_, err := c.Register(c.Name)
 	if err != nil {
@@ -145,7 +147,7 @@ func (c *Client) UserRegister() error {
 	return c.Sync()
 }
 
-// Fix Operation path.
+// fixPath fix the operation path with PWD.
 func (c *Client) fixPath(p string) string {
 	if !strings.HasPrefix(p, "/") {
 		p = path.Join(c.PWD, p)
@@ -156,7 +158,7 @@ func (c *Client) fixPath(p string) string {
 	return p
 }
 
-// Split path and name.
+// splitPathName split the path into target's parent path and target's name.
 func (c *Client) splitPathName(p string) (string, string) {
 	pathParams := strings.Split(c.fixPath(p), "/")
 	p = strings.Join(pathParams[:len(pathParams)-2], "/") + "/"
@@ -164,7 +166,7 @@ func (c *Client) splitPathName(p string) (string, string) {
 	return p, name
 }
 
-// Change Operation PWD
+// ChangePWD changed the PWD to destination path.
 func (c *Client) ChangePWD(dst string) error {
 	dst = c.fixPath(dst)
 	_, err := c.User.Root.GetDirectory(dst)
@@ -175,25 +177,28 @@ func (c *Client) ChangePWD(dst string) error {
 	return nil
 }
 
-// Get the total size of user's storage
+// GetSize returns the total size of files stored in P2P network.
 func (c *Client) GetSize() int64 {
 	return c.User.Root.Home.Size
 }
 
-// Get iNode of the path in home directory
+// GetINode returns the iNode of the path in 'home' directory.
+// If error is not nil, it will return.
 func (c *Client) GetINode(p string) (tpStorage.INode, error) {
 	p, name := c.splitPathName(p)
 	return c.User.Root.GetINode(p, name)
 }
 
-// Get iNode of the path in shared directory
+// GetSharedINode returns the iNode of the path in 'shared' directory.
+// If error is not nil, it will return./
 func (c *Client) GetSharedINode(p string) (tpStorage.INode, error) {
 	p, name := c.splitPathName(p)
 	return c.User.Root.GetSharedINode(p, name)
 }
 
 // TODO: Create Directory & Create All Directory
-// Create all directory of the path
+
+// CreateDirectory create new directory of the path and send transaction.
 func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	p = c.fixPath(p)
 	err := c.User.Root.CreateDirectory(p)
@@ -209,7 +214,8 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
-// Upload src file in the dst path
+// CreateFile create new file of the source.
+// After sending transaction, upload file into P2P network.
 func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[string]interface{}, error) {
 	if !strings.HasPrefix(src, "/") {
 		return nil, errors.New("the source path should be full path")
@@ -266,7 +272,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	return response, nil
 }
 
-// Upload the file into the seas
+// uploadFile upload file into P2P network.
 func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]string) {
 	var wg sync.WaitGroup
 	for i, fragment := range fileInfo.Fragments {
@@ -288,7 +294,7 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 	lib.Logger.WithFields(logrus.Fields{}).Info("file upload finish")
 }
 
-// Rename the file or directory
+// Rename change the target name to new name.
 func (c *Client) Rename(src, newName string) (map[string]interface{}, error) {
 	p, name := c.splitPathName(src)
 	err := c.User.Root.UpdateName(p, name, newName)
@@ -304,17 +310,18 @@ func (c *Client) Rename(src, newName string) (map[string]interface{}, error) {
 	}}, addresses, addresses, lib.DefaultWait)
 }
 
-// List directory infos in the path of home directory
+// ListDirectory returns the information of iNodes in the path of 'home' directory.
 func (c *Client) ListDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	return c.User.Root.ListDirectory(c.fixPath(p))
 }
 
-// List directory infos in the path of shared directory
+// ListSharedDirectory returns the information of iNodes in the path of 'shared' directory.
 func (c *Client) ListSharedDirectory(p string) ([]tpStorage.INodeInfo, error) {
 	return c.User.Root.ListSharedDirectory(c.fixPath(p))
 }
 
-// Delete the directory of the path
+// DeleteDirectory delete directory of the path in 'home' directory and files under it.
+// After delete it, send transaction.
 func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	p, name := c.splitPathName(p)
 	seaOperations, err := c.User.Root.DeleteDirectory(p, name, true)
@@ -334,7 +341,7 @@ func (c *Client) DeleteDirectory(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
-// Delete the file of the path
+// DeleteFile delete the target file, then send transaction.
 func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	p, name := c.splitPathName(p)
 	seaOperations, err := c.User.Root.DeleteFile(p, name, true)
@@ -354,7 +361,7 @@ func (c *Client) DeleteFile(p string) (map[string]interface{}, error) {
 	return response, err
 }
 
-// Move file or directory to new path
+// Move change the iNode's parent path from source to destination.
 func (c *Client) Move(src, dst string) (map[string]interface{}, error) {
 	dst = c.fixPath(dst)
 	p, name := c.splitPathName(src)
@@ -371,7 +378,7 @@ func (c *Client) Move(src, dst string) (map[string]interface{}, error) {
 	}}, addresses, addresses, lib.DefaultWait)
 }
 
-// Download the file of the path into the dst path in the system
+// DownloadFiles download the file or directory to destination path in system.
 func (c *Client) DownloadFiles(p, dst string) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
@@ -389,7 +396,7 @@ func (c *Client) DownloadFiles(p, dst string) {
 	}
 }
 
-// Download the shared file of owner in the path into the dst path in the system
+// DownloadSharedFiles download the file or directory in 'shared' directory of owner to destination path in system.
 func (c *Client) DownloadSharedFiles(p, dst, owner string) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
@@ -407,7 +414,7 @@ func (c *Client) DownloadSharedFiles(p, dst, owner string) {
 	}
 }
 
-// Download the directory and all the files in it into the dst path in the system
+// download files in it and recursive call to download directories in it.
 func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for _, iNode := range dir.INodes {
@@ -425,7 +432,7 @@ func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, 
 	}
 }
 
-// Download the file into the dst path in the system
+// download file of the target path.
 func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
 	if err != nil {
@@ -490,7 +497,7 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	}
 }
 
-// Publish keys of the files in the path
+// PublishKey publish keys of the files in the path.
 func (c *Client) PublishKey(p string) (map[string]interface{}, error) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
@@ -522,7 +529,7 @@ func (c *Client) PublishKey(p string) (map[string]interface{}, error) {
 	return nil, errors.New("failed to public key")
 }
 
-// Publish keys of the files in the directory
+// publish keys of the files in the directory.
 func (c *Client) publishDirectoryKey(dir *tpStorage.Directory) (map[string]tpPayload.SeaStoragePayload, error) {
 	payloads := make(map[string]tpPayload.SeaStoragePayload)
 	for _, iNode := range dir.INodes {
@@ -552,7 +559,7 @@ func (c *Client) publishDirectoryKey(dir *tpStorage.Directory) (map[string]tpPay
 	return payloads, nil
 }
 
-// Publish key of the file
+// publish key of the file.
 func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 	keyBytes, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
 	if err != nil {
@@ -566,7 +573,7 @@ func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 	return key, nil
 }
 
-// Share Files
+// ShareFiles share the files from 'home' directory to 'shared' directory.
 func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]interface{}, error) {
 	dst = c.fixPath(dst)
 	p, name := c.splitPathName(src)
@@ -587,7 +594,7 @@ func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]inte
 	return keys, response, err
 }
 
-// List users of shared files.
+// ListUsersShared get the query cache for list shared files.
 func (c *Client) ListUsersShared(other bool) error {
 	if len(c.QueryCache) == 0 {
 		users, err := lib.ListUsers("", lib.DefaultQueryLimit)
@@ -630,7 +637,8 @@ func (c *Client) ListUsersShared(other bool) error {
 	return nil
 }
 
-// List user's shared directory.
+// ListOtherSharedDirectory returns the list of user's shared directory.
+// If error is not nil, it will return.
 func (c *Client) ListOtherSharedDirectory(owner, p string) ([]tpStorage.INodeInfo, error) {
 	u, err := c.checkUser(owner)
 	if err != nil {
@@ -639,7 +647,8 @@ func (c *Client) ListOtherSharedDirectory(owner, p string) ([]tpStorage.INodeInf
 	return u.Root.ListSharedDirectory(p)
 }
 
-// Get iNode of user's shared files.
+// GetOtherSharedINode returns the iNode of user's shared files.
+// If error is not nil, it will return.
 func (c *Client) GetOtherSharedINode(owner, p string) (tpStorage.INode, error) {
 	u, err := c.checkUser(owner)
 	if err != nil {
@@ -649,6 +658,9 @@ func (c *Client) GetOtherSharedINode(owner, p string) (tpStorage.INode, error) {
 	return u.Root.GetSharedINode(p, name)
 }
 
+// check user whether in the query cache.
+// If exists, it will return directly.
+// Else it will get user's data from blockchain.
 func (c *Client) checkUser(addr string) (*tpUser.User, error) {
 	u, ok := c.QueryCache[addr]
 	if !ok {

@@ -61,7 +61,7 @@ message OperationRequest {
 
 message DownloadRequest {
     MessageData messageData = 1;
-    string owner = 2;
+    string owner = 2; // the owner's public key of file
     string hash = 3; // the hash of file
 }
 

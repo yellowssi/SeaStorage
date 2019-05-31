@@ -52,11 +52,10 @@ const (
 
 // The error response of Hyperledger Sawtooth transaction.
 var (
-	TransactionNotCommittedError = errors.New("waiting for committed")
-	TransactionInvalidError      = errors.New("invalid transaction")
+	errWaitingForCommitted = errors.New("waiting for committed")
+	errInvalidTransaction  = errors.New("invalid transaction")
 )
 
-// The Client Framework for both user and sea.
 // ClientFramework provides SeaStorage base operations for both user and sea.
 type ClientFramework struct {
 	Name     string // The name of user or sea.
@@ -64,7 +63,7 @@ type ClientFramework struct {
 	signer   *signing.Signer
 }
 
-// Generate new ClientFramework. The construct of ClientFramework struct.
+// NewClientFramework is the construct for ClientFramework.
 func NewClientFramework(name string, category bool, keyFile string) (*ClientFramework, error) {
 	if name == "" {
 		return nil, errors.New("need a valid name")
@@ -75,7 +74,7 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 	// Read private key file
 	privateKeyHex, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to read private key: %v", err))
+		return nil, fmt.Errorf("failed to read private key: %v", err)
 	}
 	// Get private key object
 	privateKey := signing.NewSecp256k1PrivateKey(tpCrypto.HexToBytes(string(privateKeyHex)))
@@ -100,38 +99,36 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 	if cf.waitingForRegister(60) {
 		return response, nil
-	} else {
-		return response, TransactionNotCommittedError
 	}
+	return response, errWaitingForCommitted
 }
 
-// Get user or sea's information from the blockchain.
+// GetData returns the data of user or sea.
 func (cf *ClientFramework) GetData() ([]byte, error) {
 	return GetStateData(cf.GetAddress())
 }
 
-// Get the address of user or sea using for storing information in the blockchain.
+// GetAddress returns the address of user or sea.
 func (cf *ClientFramework) GetAddress() string {
 	if cf.Category {
 		return tpState.MakeAddress(tpState.AddressTypeUser, cf.Name, cf.signer.GetPublicKey().AsHex())
-	} else {
-		return tpState.MakeAddress(tpState.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
 	}
+	return tpState.MakeAddress(tpState.AddressTypeSea, cf.Name, cf.signer.GetPublicKey().AsHex())
 }
 
-// Get the public key (Secp256k1) of user or sea.
+// GetPublicKey returns the public key of user or sea.
 func (cf *ClientFramework) GetPublicKey() string {
 	return cf.signer.GetPublicKey().AsHex()
 }
 
-// Generate file fragment store operation and sign it.
+// GenerateOperation return the user operation signed by user's private key.
 func (cf *ClientFramework) GenerateOperation(sea, path, name, hash string, size int64) *tpUser.Operation {
 	packages := time.Duration(math.Ceil(float64(size) / float64(PackageSize)))
 	timestamp := time.Now().Add(packages * time.Hour).Unix()
 	return tpUser.NewOperation(cf.GetAddress(), cf.signer.GetPublicKey().AsHex(), sea, path, name, hash, size, timestamp, *cf.signer)
 }
 
-// Display user or sea's information.
+// Whoami display the information of user or sea.
 func (cf *ClientFramework) Whoami() {
 	if cf.Category {
 		fmt.Println("User name: " + cf.Name)
@@ -142,16 +139,17 @@ func (cf *ClientFramework) Whoami() {
 	fmt.Println("Sawtooth address: " + cf.GetAddress())
 }
 
-// Decrypt the key using for encrypting file by private key.
+// DecryptFileKey returns the key decrypted by user's private key.
+// If the error is not nil, it will return.
 func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
-	privateKey, _ := ioutil.ReadFile(KeyFile)
+	privateKey, _ := ioutil.ReadFile(PrivateKeyFile)
 	return tpCrypto.Decryption(string(privateKey), key)
 }
 
-// Get the status of sent batch.
-func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]interface{}, error) {
+// GetStatus returns the status of batch.
+func (cf *ClientFramework) getStatus(batchID string, wait uint) (map[string]interface{}, error) {
 	// API to call
-	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusApi, batchId, wait)
+	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusAPI, batchID, wait)
 	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
 	if err != nil {
 		return nil, err
@@ -161,7 +159,7 @@ func (cf *ClientFramework) getStatus(batchId string, wait uint) (map[string]inte
 	return entry, nil
 }
 
-// Send the payloads' transaction to the blockchain by sending batch.
+// SendTransaction send transactions by the batch.
 func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
@@ -180,7 +178,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Unable to serialize transaction header: %v", err))
+			return nil, fmt.Errorf("unable to serialize transaction header: %v", err)
 		}
 
 		// Signature of TransactionHeader
@@ -199,23 +197,23 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	// Get BatchList
 	rawBatchList, err := cf.createBatchList(transactions)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to construct batch list: %v", err))
+		return nil, fmt.Errorf("unable to construct batch list: %v", err)
 	}
-	batchId := rawBatchList.Batches[0].HeaderSignature
+	batchID := rawBatchList.Batches[0].HeaderSignature
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Unable to serialize batch list: %v", err))
+		return nil, fmt.Errorf("unable to serialize batch list: %v", err)
 	}
 
 	if wait > 0 {
 		waitTime := uint(0)
 		startTime := time.Now()
-		response, err := sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
+		response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
 		if err != nil {
 			return nil, err
 		}
 		for waitTime < wait {
-			status, err := cf.getStatus(batchId, wait-waitTime)
+			status, err := cf.getStatus(batchID, wait-waitTime)
 			if err != nil {
 				return nil, err
 			}
@@ -227,10 +225,10 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		return response, nil
 	}
 
-	return sendRequestByAPISuffix(BatchSubmitApi, batchList, ContentTypeOctetStream)
+	return sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
 }
 
-// Create batches for sending transaction.
+// create the list of batches.
 func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Transaction) (batch_pb2.BatchList, error) {
 	// Get list of TransactionHeader signatures
 	var transactionSignatures []string
@@ -245,7 +243,7 @@ func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Trans
 	}
 	batchHeader, err := proto.Marshal(&rawBatchHeader)
 	if err != nil {
-		return batch_pb2.BatchList{}, errors.New(fmt.Sprintf("Unable to serialize batch header: %v", err))
+		return batch_pb2.BatchList{}, fmt.Errorf("unable to serialize batch header: %v", err)
 	}
 
 	// Signature of BatchHeader
@@ -264,6 +262,7 @@ func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Trans
 	}, nil
 }
 
+// waiting for batch committed for register.
 func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 	result := make(chan bool)
 	defer close(result)
@@ -290,7 +289,7 @@ func (cf *ClientFramework) waitingForRegister(wait uint) bool {
 //func (c *ClientFramework) subscribingToEvents(action string, id string) error {
 //}
 
-// Generate (Secp256k1) key pair and store in the path.
+// GenerateKey generate key pair (Secp256k1) and store them in the storage path.
 func GenerateKey(keyName string, keyPath string) {
 	cont := signing.NewSecp256k1Context()
 	pri := cont.NewRandomPrivateKey()
@@ -311,7 +310,7 @@ func GenerateKey(keyName string, keyPath string) {
 	}
 }
 
-// Display the response of blockchain.
+// PrintResponse display the response in JSON.
 func PrintResponse(response map[string]interface{}) {
 	data, err := json.MarshalIndent(response, "", "\t")
 	if err != nil {

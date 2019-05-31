@@ -30,6 +30,7 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
+// UserNode is the P2P network node for user upload and download file.
 type UserNode struct {
 	uploadInfos struct {
 		sync.RWMutex
@@ -47,6 +48,7 @@ type UserNode struct {
 	*UserDownloadProtocol
 }
 
+// NewUserNode is the construct for UserNode.
 func NewUserNode(host p2pHost.Host, cli *lib.ClientFramework) *UserNode {
 	n := &UserNode{
 		Node:            NewNode(host),
@@ -67,6 +69,9 @@ func NewUserNode(host p2pHost.Host, cli *lib.ClientFramework) *UserNode {
 	return n
 }
 
+// Upload start upload file process. Firstly, generate information of source file.
+// After information generated, it will be stored for data transport.
+// Then start upload file process by sending upload query request protobuf.
 func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas []string) {
 	done := make(chan bool)
 	tag := tpCrypto.SHA512HexFromBytes([]byte(dst + name + hash))
@@ -76,30 +81,27 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 		operations: make(map[p2pPeer.ID]*tpUser.Operation),
 		done:       done,
 	}
-	seaIds := make([]p2pPeer.ID, 0)
+	seaIDs := make([]p2pPeer.ID, 0)
 	for _, s := range seas {
 		seaPub, err := p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s))
 		if err != nil {
 			continue
 		}
-		seaId, err := p2pPeer.IDFromPublicKey(seaPub)
+		seaID, err := p2pPeer.IDFromPublicKey(seaPub)
 		if err != nil {
 			continue
 		}
-		seaIds = append(seaIds, seaId)
-		uploadInfo.operations[seaId] = n.GenerateOperation(s, dst, name, hash, size)
+		seaIDs = append(seaIDs, seaID)
+		uploadInfo.operations[seaID] = n.GenerateOperation(s, dst, name, hash, size)
 	}
 	n.uploadInfos.Lock()
 	n.uploadInfos.m[tag] = uploadInfo
 	n.uploadInfos.Unlock()
-	for _, seaId := range seaIds {
-		err := n.SendUploadQuery(seaId, tag, size)
+	for _, seaID := range seaIDs {
+		err := n.SendUploadQuery(seaID, tag, size)
 		if err != nil {
-			err = n.SendUploadQuery(seaId, tag, size)
-			if err != nil {
-				delete(uploadInfo.operations, seaId)
-				continue
-			}
+			delete(uploadInfo.operations, seaID)
+			continue
 		}
 	}
 	go func(info *userUploadInfo) {
@@ -118,17 +120,20 @@ func (n *UserNode) Upload(src *os.File, dst, name, hash string, size int64, seas
 	n.uploadInfos.Unlock()
 }
 
+// Download start download file process. Firstly, generate information for downloaded file.
+// Send download request to start download process. After download finished, the downloaded
+// file will be verify by stored information.
 func (n *UserNode) Download(dst, owner string, fragment *tpStorage.Fragment) error {
 	for _, s := range fragment.Seas {
 		publicKey, err := p2pCrypto.UnmarshalSecp256k1PublicKey(tpCrypto.HexToBytes(s.PublicKey))
 		if err != nil {
 			continue
 		}
-		peerId, err := p2pPeer.IDFromPublicKey(publicKey)
+		peerID, err := p2pPeer.IDFromPublicKey(publicKey)
 		if err != nil {
 			continue
 		}
-		err = n.SendDownloadProtocol(peerId, dst, owner, fragment.Hash, fragment.Size)
+		err = n.SendDownloadProtocol(peerID, dst, owner, fragment.Hash, fragment.Size)
 		if err == nil {
 			return nil
 		}

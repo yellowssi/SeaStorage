@@ -43,7 +43,7 @@ var rootCmd = &cobra.Command{
 	Short: "Decentralized cloud storage application",
 	Long: `SeaStorage is a decentralized cloud storage application.
 This application is a tool for store files on a P2P
-network based on hyperledger sawtooth.`,
+network based on Hyperledger Sawtooth.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
@@ -74,7 +74,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file(json)")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUsername(), "the name of user/sea")
 	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
-	rootCmd.PersistentFlags().StringVarP(&lib.KeyFile, "key", "k", lib.DefaultKeyFile, "the private key file for identity")
+	rootCmd.PersistentFlags().StringVarP(&lib.PrivateKeyFile, "key", "k", lib.DefaultPrivateKeyFile, "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
 	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
@@ -95,7 +95,7 @@ func initConfig() {
 			if err != nil {
 				panic(err)
 			}
-			_, err = cf.Write(initConfigJson())
+			_, err = cf.Write(initConfigJSON())
 			if err != nil {
 				panic(err)
 			}
@@ -113,7 +113,7 @@ func initConfig() {
 		os.Exit(1)
 	} else {
 		lib.DefaultTPURL = viper.GetString("url")
-		lib.DefaultKeyFile = viper.GetString("key")
+		lib.DefaultPrivateKeyFile = viper.GetString("key")
 		lib.DefaultListenAddress = viper.GetString("listen")
 		lib.DefaultListenPort = viper.GetInt("port")
 		lib.DefaultBootstrapAddrs = viper.GetStringSlice("bootstrap")
@@ -143,6 +143,7 @@ func initLogger() {
 	}
 }
 
+// init P2P bootstrap nodes
 func initBootstrapNodes() {
 	// Check bootstrap addresses
 	for _, addr := range bootstrapAddrs {
@@ -156,7 +157,8 @@ func initBootstrapNodes() {
 	}
 }
 
-func initConfigJson() []byte {
+// init config in JSON format
+func initConfigJSON() []byte {
 	cfg := make(map[string]interface{})
 	cfg["url"] = lib.DefaultTPURL
 	cfg["key"] = GetDefaultKeyFile()
@@ -170,6 +172,7 @@ func initConfigJson() []byte {
 	return data
 }
 
+// GetDefaultUsername returns the name of current system user.
 func GetDefaultUsername() string {
 	u, err := user.Current()
 	if err != nil {
@@ -179,6 +182,8 @@ func GetDefaultUsername() string {
 	return u.Username
 }
 
+// GetDefaultKeyFile returns the default key file named as username
+// in the default key path.
 func GetDefaultKeyFile() string {
 	return path.Join(lib.DefaultKeyPath, GetDefaultUsername()+".priv")
 }

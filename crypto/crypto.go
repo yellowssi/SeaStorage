@@ -42,7 +42,7 @@ func init() {
 	}
 }
 
-// Generate the information of file for SeaStorage file system.
+// GenerateFileInfo generate the information of file for SeaStorage file system.
 // If the size of file smaller than the default large file size limitation,
 // the file will be split using RS erasure coding,
 // else the file will keep origin
@@ -80,7 +80,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	// Split File
 	var f *os.File
 	var fileInfo os.FileInfo
-	if inFileInfo.Size() >= lib.BigFileSize {
+	if inFileInfo.Size() >= lib.LargeFileSize {
 		f, err = os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
 		if err != nil {
 			return
@@ -141,7 +141,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	return
 }
 
-// Encrypt file using AES-CTR. After encryption, calculate the hash of file.
+// EncryptFile encrypt the file using AES-CTR. After encryption, calculate the hash of file.
 func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -181,7 +181,7 @@ func EncryptFile(inFile, outFile *os.File, keyAes []byte) (hash string, err erro
 	return
 }
 
-// Decrypt file using AES-CTR. After decryption, calculate the hash of file.
+// DecryptFile decrypt the file using AES-CTR. After decryption, calculate the hash of file.
 func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) {
 	info, err := inFile.Stat()
 	if err != nil {
@@ -213,7 +213,7 @@ func DecryptFile(inFile, outFile *os.File, key []byte) (hash string, err error) 
 	return
 }
 
-// Split file using Reed-solomon erasure coding.
+// SplitFile split file using Reed-solomon erasure coding.
 // After split, calculate each fragment's infos (hash & size).
 func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hashes []string, fragmentSize int64, err error) {
 	info, err := inFile.Stat()
@@ -286,7 +286,7 @@ func SplitFile(inFile *os.File, outPath string, dataShards, parShards int) (hash
 	return
 }
 
-// Merge file using Reed-solomon erasure coding.
+// MergeFile merge fragments using Reed-solomon erasure coding.
 func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, dataShards, parShards int) error {
 	if len(hashes) != dataShards+parShards {
 		return errors.New("the length of hash is not equal to shards")
@@ -367,7 +367,7 @@ func openInput(inPath string, hashes []string, dataShards, parShards int) (r []i
 	return shards, size, nil
 }
 
-// Calculate the hash of file.
+// CalFileHash calculate the hash of file.
 func CalFileHash(f *os.File) (hash string, err error) {
 	info, err := f.Stat()
 	if err != nil {

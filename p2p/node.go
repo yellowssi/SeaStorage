@@ -31,10 +31,12 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
 )
 
+// Node is the framework used for file transport in P2P network.
 type Node struct {
 	p2pHost.Host
 }
 
+// NewNode is the construct for Node.
 func NewNode(host p2pHost.Host) *Node {
 	return &Node{Host: host}
 }
@@ -59,7 +61,7 @@ func (n *Node) authenticateMessage(message proto.Message, data *pb.MessageData) 
 	data.Sign = sign
 
 	// restore p2pPeer id binary format from base58 encoded node id data
-	peerId, err := p2pPeer.IDHexDecode(data.NodeId)
+	peerID, err := p2pPeer.IDHexDecode(data.NodeId)
 	if err != nil {
 		log.Println(err, "Failed to decode node id from base58")
 		return false
@@ -67,7 +69,7 @@ func (n *Node) authenticateMessage(message proto.Message, data *pb.MessageData) 
 
 	// verify the data was authored by the signing p2pPeer identified by the public key
 	// and signature included in the message
-	return n.verifyData(bin, []byte(sign), peerId, data.NodePubKey)
+	return n.verifyData(bin, []byte(sign), peerID, data.NodePubKey)
 }
 
 // sign an outgoing p2p message payload
@@ -89,9 +91,9 @@ func (n *Node) signData(data []byte) ([]byte, error) {
 // Verify incoming p2p message data integrity
 // data: data to verify
 // signature: author signature provided in the message payload
-// peerId: author p2pPeer id from the message payload
+// peerID: author p2pPeer id from the message payload
 // pubKeyData: author public key from the message payload
-func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubKeyData []byte) bool {
+func (n *Node) verifyData(data []byte, signature []byte, peerID p2pPeer.ID, pubKeyData []byte) bool {
 	key, err := p2pCrypto.UnmarshalSecp256k1PublicKey(pubKeyData)
 	if err != nil {
 		log.Println(err, "Failed to extract key from message key data")
@@ -107,7 +109,7 @@ func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubK
 	}
 
 	// verify that message author node id matches the provided node public key
-	if idFromKey != peerId {
+	if idFromKey != peerID {
 		log.Println(err, "Node id and provided public key mismatch")
 		return false
 	}
@@ -121,9 +123,9 @@ func (n *Node) verifyData(data []byte, signature []byte, peerId p2pPeer.ID, pubK
 	return res
 }
 
-// helper method - generate message data shared between all node's p2p protocols
-// messageId: unique for requests, copied from request for responses
-func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
+// NewMessageData generate message data shared between all node's p2p protocols
+// messageID: unique for requests, copied from request for responses
+func (n *Node) NewMessageData(messageID string, gossip bool) *pb.MessageData {
 	// Add protobufs bin data for message author public key
 	// this is useful for authenticating  messages forwarded by a node authored by another node
 	nodePubKey := (*btcec.PublicKey)(n.Peerstore().PubKey(n.ID()).(*p2pCrypto.Secp256k1PublicKey)).SerializeCompressed()
@@ -133,7 +135,7 @@ func (n *Node) NewMessageData(messageId string, gossip bool) *pb.MessageData {
 		NodeId:        p2pPeer.IDHexEncode(n.ID()),
 		NodePubKey:    nodePubKey,
 		Timestamp:     time.Now().Unix(),
-		Id:            messageId,
+		Id:            messageID,
 		Gossip:        gossip,
 	}
 }

@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,8 +27,9 @@ import (
 	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
 )
 
+// GetStateData returns the data of the address in byte slice.
 func GetStateData(addr string) ([]byte, error) {
-	apiSuffix := fmt.Sprintf("%s/%s", StateApi, addr)
+	apiSuffix := fmt.Sprintf("%s/%s", StateAPI, addr)
 	resp, err := sendRequestByAPISuffix(apiSuffix, nil, "")
 	if err != nil {
 		return nil, err
@@ -37,8 +37,9 @@ func GetStateData(addr string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(resp["data"].(string))
 }
 
+// List returns the list of data that address started with the address prefix.
 func list(address, start string, limit uint) (result []interface{}, err error) {
-	apiSuffix := fmt.Sprintf("%s?address=%s", StateApi, address)
+	apiSuffix := fmt.Sprintf("%s?address=%s", StateAPI, address)
 	if start != "" {
 		apiSuffix = fmt.Sprintf("%s&start=%s", apiSuffix, start)
 	}
@@ -52,22 +53,22 @@ func list(address, start string, limit uint) (result []interface{}, err error) {
 	return response["data"].([]interface{}), nil
 }
 
-// Get the list of data that address starting with family address.
+// ListAll returns the list of data that address started with the SeaStorage's namespace.
 func ListAll(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace, start, limit)
 }
 
-// Get the list of user's data.
+// ListUsers returns the list of data that address started with the UserNamespace.
 func ListUsers(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.UserNamespace, start, limit)
 }
 
-// Get the list of sea's data.
+// ListSeas returns the list of data that address started with the SeaNamespace.
 func ListSeas(start string, limit uint) ([]interface{}, error) {
 	return list(tpState.Namespace+tpState.SeaNamespace, start, limit)
 }
 
-// Get the list of sea's public key. Using for searching storage node.
+// ListSeasPublicKey returns the list of sea's public key.
 func ListSeasPublicKey(start string, limit uint) ([]string, error) {
 	seas, err := ListSeas(start, limit)
 	if err != nil {
@@ -88,6 +89,7 @@ func ListSeasPublicKey(start string, limit uint) ([]string, error) {
 	return result, nil
 }
 
+// sendRequest send the request to the Hyperledger Sawtooth rest api by giving url.
 func sendRequest(url string, data []byte, contentType string) (map[string]interface{}, error) {
 	// SendUploadQuery request to validator URL
 	var response *http.Response
@@ -98,17 +100,17 @@ func sendRequest(url string, data []byte, contentType string) (map[string]interf
 		response, err = http.Get(url)
 	}
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to connect to REST API: %v", err))
+		return nil, fmt.Errorf("failed to connect to REST API: %v", err)
 	}
 	if response.StatusCode == 404 {
-		return nil, errors.New(fmt.Sprintf("No such endpoint: %s", url))
+		return nil, fmt.Errorf("no such endpoint: %s", url)
 	} else if response.StatusCode >= 400 {
-		return nil, errors.New(fmt.Sprintf("Error %d: %s", response.StatusCode, response.Status))
+		return nil, fmt.Errorf("error %d: %s", response.StatusCode, response.Status)
 	}
 	defer response.Body.Close()
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading response: %v", err))
+		return nil, fmt.Errorf("error reading response: %v", err)
 	}
 	responseMap := make(map[string]interface{})
 	err = json.Unmarshal(responseBody, &responseMap)
@@ -118,6 +120,7 @@ func sendRequest(url string, data []byte, contentType string) (map[string]interf
 	return responseMap, nil
 }
 
+// sendRequest send the request to the Hyperledger Sawtooth rest api by giving api suffix.
 func sendRequestByAPISuffix(apiSuffix string, data []byte, contentType string) (map[string]interface{}, error) {
 	var url string
 	// Construct url

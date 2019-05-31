@@ -29,6 +29,7 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/lib"
 )
 
+// SeaNode is the P2P network node for sea providing storage.
 type SeaNode struct {
 	*lib.ClientFramework
 	storagePath string
@@ -54,6 +55,7 @@ type SeaNode struct {
 	*SeaDownloadConfirmProtocol
 }
 
+// NewSeaNode is the construct for SeaNode.
 func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2pHost.Host) (*SeaNode, error) {
 	freeSize := size
 	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
@@ -99,6 +101,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 	return seaNode, nil
 }
 
+// SendUserOperations send users' operations for transaction.
 func (s *SeaNode) SendUserOperations() {
 	for {
 		time.Sleep(time.Second)
@@ -149,6 +152,7 @@ func (s *SeaNode) SendUserOperations() {
 	}
 }
 
+// get the total size of directory.
 func dirSize(path string) (int64, error) {
 	var size int64
 	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {

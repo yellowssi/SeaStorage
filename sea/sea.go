@@ -38,11 +38,13 @@ import (
 	"gitlab.com/SeaStorage/SeaStorage/p2p"
 )
 
+// Client provides the platform for sea providing the storage resources in the P2P network.
 type Client struct {
 	Sea *tpSea.Sea
 	*lib.ClientFramework
 }
 
+// NewSeaClient is the construct for Sea Client.
 func NewSeaClient(name, keyFile string) (*Client, error) {
 	c, err := lib.NewClientFramework(name, lib.ClientCategorySea, keyFile)
 	if err != nil {
@@ -53,6 +55,7 @@ func NewSeaClient(name, keyFile string) (*Client, error) {
 	return cli, nil
 }
 
+// SeaRegister register the sea in the blockchain.
 func (c *Client) SeaRegister() error {
 	_, err := c.Register(c.Name)
 	if err != nil {
@@ -66,6 +69,7 @@ func (c *Client) SeaRegister() error {
 	return c.Sync()
 }
 
+// Sync get the sea's data from blockchain.
 func (c *Client) Sync() error {
 	seaBytes, err := c.GetData()
 	if err != nil {
@@ -79,6 +83,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
+// Bootstrap start the node process for providing storage resources.
 func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAddrs []ma.Multiaddr) {
 	priv, _ := ioutil.ReadFile(keyFile)
 	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
@@ -149,6 +154,7 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 	<-sigs
 }
 
+// ConfirmSeaOperations get the sea's operations from blockchain and operate them.
 func (c *Client) ConfirmSeaOperations() {
 	err := c.Sync()
 	if err != nil {
@@ -193,6 +199,7 @@ func (c *Client) ConfirmSeaOperations() {
 	}
 }
 
+// sendSeaOperations send transactions for confirming sea's operations.
 func (c *Client) sendSeaOperations(operations []tpSea.Operation) (map[string]interface{}, error) {
 	payload := tpPayload.SeaStoragePayload{
 		Name:          c.Name,
