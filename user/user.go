@@ -214,36 +214,97 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 }
 
 // CreateDirectoryWithFiles upload directory and files in it from source path in system to destination path.
-func (c *Client) CreateDirectoryWithFiles(src, dst string, dataShards, parShards int) ([]map[string]interface{}, error) {
+func (c *Client) CreateDirectoryWithFiles(src, dst string, dataShards, parShards int) (map[string]interface{}, error) {
 	dst = c.fixPath(dst)
+	keyAES := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
+	payloads, infos, err := c.generateCreateDirectoryAndFilesPayload(src, dst, tpCrypto.BytesToHex(keyAES), dataShards, parShards)
+	if err != nil {
+		return nil, err
+	}
+	fileSeas := make([][][]string, 0)
+	for _, info := range infos {
+		fileInfo := info["info"].(tpStorage.FileInfo)
+		seas, err := c.generateSeas(len(fileInfo.Fragments))
+		if err != nil {
+			return nil, err
+		}
+		fileSeas = append(fileSeas, seas)
+	}
+	addresses := []string{c.GetAddress()}
+	resp, err := c.SendTransaction(payloads, addresses, addresses, lib.DefaultWait)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	for i, info := range infos {
+		fileInfo := info["info"].(tpStorage.FileInfo)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.uploadFile(fileInfo, info["dst"].(string), fileSeas[i])
+		}()
+	}
+	wg.Wait()
+	return resp, nil
+}
+
+// generate payloads for creating directory with files.
+func (c *Client) generateCreateDirectoryAndFilesPayload(src, dst, keyAES string, dataShards, parShards int) ([]tpPayload.SeaStoragePayload, []map[string]interface{}, error) {
 	resources, err := ioutil.ReadDir(src)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	response, err := c.CreateDirectory(dst)
+	err = c.User.Root.CreateDirectory(dst)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	responses := []map[string]interface{}{response}
 
+	payloads := []tpPayload.SeaStoragePayload{{
+		Name:   c.Name,
+		Action: tpPayload.UserCreateDirectory,
+		PWD:    dst,
+	}}
+	infos := make([]map[string]interface{}, 0)
 	for _, resource := range resources {
 		if resource.IsDir() {
-			resp, err := c.CreateDirectoryWithFiles(path.Join(src, resource.Name()), path.Join(dst, resource.Name()), dataShards, parShards)
+			dir := path.Join(dst, resource.Name()) + "/"
+			err := c.User.Root.CreateDirectory(dir)
 			if err != nil {
-				return nil, fmt.Errorf("failed to upload directory: %s", path.Join(src, resource.Name()))
-			} else {
-				responses = append(responses, resp...)
+				return nil, nil, err
 			}
+			payloads = append(payloads, tpPayload.SeaStoragePayload{
+				Name:   c.Name,
+				Action: tpPayload.UserCreateDirectory,
+				PWD:    dir,
+			})
+			payload, info, err := c.generateCreateDirectoryAndFilesPayload(path.Join(src, resource.Name()), dir, keyAES, dataShards, parShards)
+			if err != nil {
+				return nil, nil, err
+			}
+			payloads = append(payloads, payload...)
+			infos = append(infos, info...)
 		} else {
-			resp, err := c.CreateFile(path.Join(src, resource.Name()), dst, dataShards, parShards)
+			info, err := crypto.GenerateFileInfo(path.Join(src, resource.Name()), c.GetPublicKey(), keyAES, dataShards, parShards)
 			if err != nil {
-				return nil, fmt.Errorf("failed to upload file: %s", path.Join(src, resource.Name()))
-			} else {
-				responses = append(responses, resp)
+				return nil, nil, err
 			}
+			err = c.User.Root.CreateFile(dst, info)
+			if err != nil {
+				return nil, nil, err
+			}
+			payloads = append(payloads, tpPayload.SeaStoragePayload{
+				Name:     c.Name,
+				Action:   tpPayload.UserCreateFile,
+				PWD:      dst,
+				FileInfo: info,
+			})
+			infos = append(infos, map[string]interface{}{
+				"dst":  dst,
+				"info": info,
+			})
 		}
 	}
-	return responses, nil
+	return payloads, infos, nil
 }
 
 // CreateFile create new file of the source.
@@ -258,7 +319,8 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	if err != nil {
 		return nil, err
 	}
-	info, err := crypto.GenerateFileInfo(src, c.GetPublicKey(), dataShards, parShards)
+	keyAES := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
+	info, err := crypto.GenerateFileInfo(src, c.GetPublicKey(), tpCrypto.BytesToHex(keyAES), dataShards, parShards)
 	if err != nil {
 		return nil, err
 	}
@@ -267,8 +329,8 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		return nil, err
 	}
 
-	seas, err := lib.ListSeasPublicKey("", lib.DefaultQueryLimit)
-	if err != nil || len(seas) == 0 {
+	fragmentSeas, err := c.generateSeas(len(info.Fragments))
+	if err != nil {
 		return nil, err
 	}
 
@@ -281,17 +343,29 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 	}}, addresses, addresses, lib.DefaultWait)
 
 	if err != nil {
-		return nil, err
+		return response, err
 	}
 	// TODO: Watching transaction status
+	c.uploadFile(info, dst, fragmentSeas)
+	return response, nil
+}
+
+// generate the list of seas for file upload.
+func (c *Client) generateSeas(fragments int) ([][]string, error) {
+	seas, err := lib.ListSeasPublicKey("", lib.DefaultQueryLimit)
+	if err != nil {
+		return nil, err
+	} else if len(seas) == 0 {
+		return nil, errors.New("not enough storage resources")
+	}
 	fragmentSeas := make([][]string, 0)
-	for i := range info.Fragments {
-		// TODO: Algorithm for select sea && user selected seas
+	for i := 0; i < fragments; i++ {
+		// TODO: Algorithm for select sea && user selected fragmentSeas
 		peers := make([]string, 0)
 		if len(seas) <= 3 {
 			peers = append(peers, seas...)
 		} else {
-			for j := i; j <= i+len(seas); j++ {
+			for j := i; j <= i+len(fragmentSeas); j++ {
 				peers = append(peers, seas[j%len(seas)])
 				if len(peers) >= 3 {
 					break
@@ -300,8 +374,7 @@ func (c *Client) CreateFile(src, dst string, dataShards, parShards int) (map[str
 		}
 		fragmentSeas = append(fragmentSeas, peers)
 	}
-	c.uploadFile(info, dst, fragmentSeas)
-	return response, nil
+	return fragmentSeas, nil
 }
 
 // uploadFile upload file into P2P network.

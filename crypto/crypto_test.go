@@ -91,7 +91,8 @@ func TestMergeFile(t *testing.T) {
 
 func TestGenerateFileInfo(t *testing.T) {
 	publicKeyBytes, _ := ioutil.ReadFile("./test/test.pub")
-	info, err := GenerateFileInfo("./test/test.priv", string(publicKeyBytes), 5, 3)
+	keyAES := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
+	info, err := GenerateFileInfo("./test/test.priv", string(publicKeyBytes), tpCrypto.BytesToHex(keyAES), 5, 3)
 	if err != nil {
 		t.Error(err)
 	}

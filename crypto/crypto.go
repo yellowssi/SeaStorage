@@ -46,7 +46,7 @@ func init() {
 // If the size of file smaller than the default large file size limitation,
 // the file will be split using RS erasure coding,
 // else the file will keep origin
-func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
+func GenerateFileInfo(target, publicKey, keyAes string, dataShards, parShards int) (info tpStorage.FileInfo, err error) {
 	// File Encrypt
 	inFile, err := os.Open(target)
 	if err != nil {
@@ -56,8 +56,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	if err != nil {
 		return
 	}
-	keyAes := tpCrypto.GenerateRandomAESKey(lib.AESKeySize)
-	keyEncrypt, err := tpCrypto.Encryption(publicKey, tpCrypto.BytesToHex(keyAes))
+	keyEncrypt, err := tpCrypto.Encryption(publicKey, keyAes)
 	if err != nil {
 		return
 	}
@@ -65,7 +64,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	if err != nil {
 		return
 	}
-	hash, err := EncryptFile(inFile, outFile, keyAes)
+	hash, err := EncryptFile(inFile, outFile, tpCrypto.HexToBytes(keyAes))
 	if err != nil {
 		return
 	}

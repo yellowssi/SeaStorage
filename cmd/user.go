@@ -218,13 +218,11 @@ communicating with the transaction processor.`,
 						lib.PrintResponse(response)
 					}
 				} else if len(commands) == 3 {
-					responses, err := cli.CreateDirectoryWithFiles(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					response, err := cli.CreateDirectoryWithFiles(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						for _, resp := range responses {
-							lib.PrintResponse(resp)
-						}
+						lib.PrintResponse(response)
 					}
 				} else {
 					fmt.Println(errInvalidPath)

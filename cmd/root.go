@@ -128,7 +128,10 @@ func initConfig() {
 		if listenPort != 0 {
 			lib.DefaultListenPort = listenPort
 		}
-		lib.DefaultBootstrapAddrs = viper.GetStringSlice("bootstrap")
+		addrs := viper.GetStringSlice("bootstrap")
+		if len(addrs) > 0 {
+			lib.DefaultBootstrapAddrs = addrs
+		}
 		seaCfg := viper.GetStringMap("sea")
 		if seaCfg != nil {
 			storagePath, ok := seaCfg["storagePath"].(string)
