@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 var (

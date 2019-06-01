@@ -29,11 +29,11 @@ import (
 	p2pNet "github.com/libp2p/go-libp2p-core/network"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
+	"github.com/yellowssi/SeaStorage/crypto"
+	"github.com/yellowssi/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/p2p/pb"
 )
 
 const (

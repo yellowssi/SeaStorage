@@ -22,7 +22,7 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 // generateCmd represents the generate command

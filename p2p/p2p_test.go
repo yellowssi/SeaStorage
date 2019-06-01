@@ -14,9 +14,9 @@ import (
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	"github.com/yellowssi/SeaStorage/crypto"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 var userCli, seaCli *lib.ClientFramework

@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"strings"
 
-	tpSea "gitlab.com/SeaStorage/SeaStorage-TP/sea"
-	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
+	tpSea "github.com/yellowssi/SeaStorage-TP/sea"
+	tpState "github.com/yellowssi/SeaStorage-TP/state"
 )
 
 // GetStateData returns the data of the address in byte slice.

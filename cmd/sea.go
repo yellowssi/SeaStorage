@@ -20,8 +20,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/sea"
+	"github.com/yellowssi/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/sea"
 )
 
 // seaCmd represents the sea command

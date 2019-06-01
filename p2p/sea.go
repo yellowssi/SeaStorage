@@ -24,9 +24,9 @@ import (
 	p2pHost "github.com/libp2p/go-libp2p-core/host"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
-	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	tpPayload "github.com/yellowssi/SeaStorage-TP/payload"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 // SeaNode is the P2P network node for sea providing storage.

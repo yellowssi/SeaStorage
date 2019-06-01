@@ -32,13 +32,13 @@ import (
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/p2p"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	tpPayload "github.com/yellowssi/SeaStorage-TP/payload"
+	tpStorage "github.com/yellowssi/SeaStorage-TP/storage"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
+	"github.com/yellowssi/SeaStorage/crypto"
+	"github.com/yellowssi/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/p2p"
 )
 
 // Client provides the platform for user storing files in P2P network.

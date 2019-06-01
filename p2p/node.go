@@ -27,8 +27,8 @@ import (
 	p2pHost "github.com/libp2p/go-libp2p-core/host"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	p2pProtocol "github.com/libp2p/go-libp2p-core/protocol"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/p2p/pb"
+	"github.com/yellowssi/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/p2p/pb"
 )
 
 // Node is the framework used for file transport in P2P network.

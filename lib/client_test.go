@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
 )
 
 var c *ClientFramework

@@ -25,9 +25,9 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
-	"gitlab.com/SeaStorage/SeaStorage/user"
+	tpStorage "github.com/yellowssi/SeaStorage-TP/storage"
+	"github.com/yellowssi/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/user"
 )
 
 var userCommands = []string{

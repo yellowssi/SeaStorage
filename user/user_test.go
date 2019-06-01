@@ -8,7 +8,7 @@ import (
 
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 var cli *Client

@@ -3,7 +3,7 @@ package sea
 import (
 	"testing"
 
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 var sea *Client

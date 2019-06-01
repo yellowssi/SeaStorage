@@ -24,10 +24,10 @@ import (
 	p2pHost "github.com/libp2p/go-libp2p-core/host"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/sirupsen/logrus"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	tpStorage "github.com/yellowssi/SeaStorage-TP/storage"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 // UserNode is the P2P network node for user upload and download file.

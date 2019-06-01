@@ -14,7 +14,7 @@
 
 package main
 
-import "gitlab.com/SeaStorage/SeaStorage/cmd"
+import "github.com/yellowssi/SeaStorage/cmd"
 
 func main() {
 	cmd.Execute()

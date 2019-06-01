@@ -31,10 +31,10 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpPayload "gitlab.com/SeaStorage/SeaStorage-TP/payload"
-	tpState "gitlab.com/SeaStorage/SeaStorage-TP/state"
-	tpUser "gitlab.com/SeaStorage/SeaStorage-TP/user"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	tpPayload "github.com/yellowssi/SeaStorage-TP/payload"
+	tpState "github.com/yellowssi/SeaStorage-TP/state"
+	tpUser "github.com/yellowssi/SeaStorage-TP/user"
 )
 
 // The Category of ClientFramework.

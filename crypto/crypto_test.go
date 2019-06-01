@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 var key = tpCrypto.GenerateRandomAESKey(lib.AESKeySize)

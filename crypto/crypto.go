@@ -28,9 +28,9 @@ import (
 	"path"
 
 	"github.com/klauspost/reedsolomon"
-	tpCrypto "gitlab.com/SeaStorage/SeaStorage-TP/crypto"
-	tpStorage "gitlab.com/SeaStorage/SeaStorage-TP/storage"
-	"gitlab.com/SeaStorage/SeaStorage/lib"
+	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
+	tpStorage "github.com/yellowssi/SeaStorage-TP/storage"
+	"github.com/yellowssi/SeaStorage/lib"
 )
 
 func init() {
