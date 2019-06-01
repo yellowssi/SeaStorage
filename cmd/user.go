@@ -403,8 +403,8 @@ communicating with the transaction processor.`,
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						printKeys(keys)
 						lib.PrintResponse(response)
+						printKeys(keys)
 					}
 				}
 			}
@@ -465,7 +465,7 @@ func printINode(iNode tpStorage.INode) {
 }
 
 // printKeys display the key and its index.
-func printKeys(keys map[string]string) {
+func printKeys(keys []string) {
 	data, err := json.Marshal(keys)
 	if err != nil {
 		fmt.Println(err)

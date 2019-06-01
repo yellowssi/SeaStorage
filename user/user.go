@@ -588,7 +588,7 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	defer inFile.Close()
 	dstFile, err := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	defer dstFile.Close()
-	key, err := c.DecryptFileKey(c.User.Root.Keys[f.KeyIndex].Key)
+	key, err := c.DecryptFileKey(c.User.Root.Keys.GetKey(f.KeyIndex).Key)
 	if err != nil {
 		fmt.Println("failed to decrypt file key:", err)
 		return
@@ -669,7 +669,7 @@ func (c *Client) publishDirectoryKey(dir *tpStorage.Directory) (map[string]tpPay
 
 // publish key of the file.
 func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
-	keyBytes, err := c.DecryptFileKey(c.User.Root.Keys[file.KeyIndex].Key)
+	keyBytes, err := c.DecryptFileKey(c.User.Root.Keys.GetKey(file.KeyIndex).Key)
 	if err != nil {
 		return
 	}
@@ -682,7 +682,7 @@ func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 }
 
 // ShareFiles share the files from 'home' directory to 'shared' directory.
-func (c *Client) ShareFiles(src, dst string) (map[string]string, map[string]interface{}, error) {
+func (c *Client) ShareFiles(src, dst string) ([]string, map[string]interface{}, error) {
 	dst = c.fixPath(dst)
 	p, name := c.splitPathName(src)
 	seaOperations, keys, err := c.User.Root.ShareFiles(p, name, dst, true)
