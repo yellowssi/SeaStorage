@@ -44,7 +44,7 @@ const (
 	// FamilyName is the SeaStorage's transaction identity.
 	FamilyName string = "SeaStorage"
 	// FamilyVersion is the version of SeaStorage's transaction.
-	FamilyVersion string = "1.0.0"
+	FamilyVersion string = "1.0.1"
 	// DefaultTmpPath is used for storing temp file.
 	DefaultTmpPath string = "/tmp/SeaStorage"
 	// DefaultWait is the waiting time for batch commits.
