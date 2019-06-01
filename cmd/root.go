@@ -112,11 +112,49 @@ func initConfig() {
 		fmt.Println(err)
 		os.Exit(1)
 	} else {
-		lib.DefaultTPURL = viper.GetString("url")
-		lib.DefaultPrivateKeyFile = viper.GetString("key")
-		lib.DefaultListenAddress = viper.GetString("listen")
-		lib.DefaultListenPort = viper.GetInt("port")
+		tpURL := viper.GetString("url")
+		if tpURL != "" {
+			lib.DefaultTPURL = tpURL
+		}
+		privateKeyFile := viper.GetString("key")
+		if privateKeyFile != "" {
+			lib.DefaultPrivateKeyFile = privateKeyFile
+		}
+		listenAddress := viper.GetString("listen")
+		if listenAddress != "" {
+			lib.DefaultListenAddress = listenAddress
+		}
+		listenPort := viper.GetInt("port")
+		if listenPort != 0 {
+			lib.DefaultListenPort = listenPort
+		}
 		lib.DefaultBootstrapAddrs = viper.GetStringSlice("bootstrap")
+		seaCfg := viper.GetStringMap("sea")
+		if seaCfg != nil {
+			storagePath, ok := seaCfg["storagePath"].(string)
+			if ok {
+				lib.DefaultStoragePath = storagePath
+			}
+			storageSize, ok := seaCfg["storageSize"].(int64)
+			if ok {
+				lib.DefaultStorageSize = storageSize
+			}
+		}
+		userCfg := viper.GetStringMap("user")
+		if userCfg != nil {
+			largeFileSize, ok := userCfg["largeFileSize"].(int64)
+			if ok {
+				lib.DefaultLargeFileSize = largeFileSize
+			}
+			dataShards, ok := userCfg["dataShards"].(int)
+			if ok {
+				lib.DefaultDataShards = dataShards
+			}
+			parShards, ok := userCfg["parShards"].(int)
+			if ok {
+				lib.DefaultParShards = parShards
+			}
+		}
 	}
 }
 
@@ -165,6 +203,15 @@ func initConfigJSON() []byte {
 	cfg["listen"] = lib.DefaultListenAddress
 	cfg["port"] = lib.DefaultListenPort
 	cfg["bootstrap"] = lib.DefaultBootstrapAddrs
+	cfg["sea"] = map[string]interface{}{
+		"storagePath": lib.DefaultStoragePath,
+		"storageSize": lib.DefaultStorageSize,
+	}
+	cfg["user"] = map[string]interface{}{
+		"largeFileSize": lib.DefaultLargeFileSize,
+		"dataShards":    lib.DefaultDataShards,
+		"parShards":     lib.DefaultParShards,
+	}
 	data, err := json.MarshalIndent(cfg, "", "\t")
 	if err != nil {
 		panic(err)

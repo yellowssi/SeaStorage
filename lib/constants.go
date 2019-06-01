@@ -53,22 +53,18 @@ const (
 	DefaultQueryLimit uint = 20
 	// EncryptSuffix is the encrypted file's suffix.
 	EncryptSuffix string = ".enc"
-	// DefaultDataShards is the number of data shard in RS erasure coding.
-	DefaultDataShards int = 5
-	// DefaultParShards is the number of parity shard in RS erasure coding.
-	DefaultParShards int = 3
 	// DefaultConfigFilename is the config filename.
 	DefaultConfigFilename string = "config"
 	// PackageSize is the limit of each package's max size.
 	PackageSize int64 = 128 * 1024 * 1024
-	// LargeFileSize is the limit of max file size for RS erasure coding using.
-	LargeFileSize int64 = 1024 * 1024 * 1024
+
 	// Content types
 
 	// ContentTypeOctetStream is the content type for request.
 	ContentTypeOctetStream string = "application/octet-stream"
 	// ContentTypeJSON is the content type for request.
 	ContentTypeJSON string = "application/json"
+
 	// APIs
 
 	// BatchSubmitAPI is the api for batch submission.
@@ -89,29 +85,35 @@ const (
 
 var (
 	// Logger provides log function.
-	Logger                *logrus.Logger
+	Logger *logrus.Logger
 	// DefaultTPURL is the default Hyperledger Sawtooth rest api.
-	DefaultTPURL                = "http://101.132.168.252:8008"
+	DefaultTPURL = "http://101.132.168.252:8008"
 	// DefaultListenAddress is the default listen address for P2P network node.
-	DefaultListenAddress        = "0.0.0.0"
+	DefaultListenAddress = "0.0.0.0"
 	// DefaultListenPort is the default listen port for P2P network node.
-	DefaultListenPort           = 5001
+	DefaultListenPort = 5001
 	// PrivateKeyFile is the path of private key.
-	PrivateKeyFile        string
+	PrivateKeyFile string
 	// DefaultKeyPath is the default path for key storing.
-	DefaultKeyPath        string
+	DefaultKeyPath string
 	// DefaultPrivateKeyFile is the default path of private key.
 	DefaultPrivateKeyFile string
 	// DefaultConfigPath is the default path for config storing.
-	DefaultConfigPath     string
+	DefaultConfigPath string
+	// DefaultLogPath is the default path for log storing.
+	DefaultLogPath string
+	// DefaultLargeFileSize is the limit of max file size for RS erasure coding using.
+	DefaultLargeFileSize int64 = 1024 * 1024 * 1024
+	// DefaultDataShards is the number of data shard in RS erasure coding.
+	DefaultDataShards = 5
+	// DefaultParShards is the number of parity shard in RS erasure coding.
+	DefaultParShards = 3
 	// DefaultStoragePath is the default path for providing storage resources.
-	DefaultStoragePath    string
+	DefaultStoragePath string
 	// DefaultStorageSize is the default limit size of storage resources.
 	DefaultStorageSize int64 = 1024 * 1024 * 1024
-	// DefaultLogPath is the default path for log storing.
-	DefaultLogPath        string
 	// DefaultBootstrapAddrs is the default addresses for joining P2P network.
-	DefaultBootstrapAddrs   = []string{
+	DefaultBootstrapAddrs = []string{
 		"/ip4/129.204.249.51/tcp/5001/p2p/16Uiu2HAkwxu3JAoqZ7QQ343hQuADCbkqfimCNRTnqQgoUpvoKEty",
 		"/ip4/101.132.168.252/tcp/5001/p2p/16Uiu2HAmHoT7LJpqYhZfLddG6Gu7WBkHh44cMiGp1FgCjPjbhEkA",
 	}

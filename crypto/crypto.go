@@ -80,7 +80,7 @@ func GenerateFileInfo(target, publicKey string, dataShards, parShards int) (info
 	// Split File
 	var f *os.File
 	var fileInfo os.FileInfo
-	if inFileInfo.Size() >= lib.LargeFileSize {
+	if inFileInfo.Size() >= lib.DefaultLargeFileSize {
 		f, err = os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
 		if err != nil {
 			return

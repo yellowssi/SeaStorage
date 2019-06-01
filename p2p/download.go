@@ -354,6 +354,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 	}
 
 	if len(data.Data) == 0 {
+		// Waiting for other downloading fragments finish
 		done := make(chan bool)
 		go func() {
 			for {
@@ -408,18 +409,19 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 		f.Close()
 		// Calculate the pubHash of file
 		f, err = os.Open(targetFile)
-		defer f.Close()
 		if err != nil {
 			downloadInfo.done <- fmt.Errorf("failed to open file: %s", targetFile)
 			return
 		}
+		defer f.Close()
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
 			downloadInfo.done <- fmt.Errorf("failed to calculate file pubHash: %s", targetFile)
 			return
 		}
 		if hash != data.Hash {
-			downloadInfo.done <- fmt.Errorf("pubHash is invalid: %s", targetFile)
+			downloadInfo.done <- fmt.Errorf("hash is invalid: %s", targetFile)
+			// TODO: Add tag for delete sea and add new sea.
 			return
 		}
 		err = p.sendDownloadConfirm(s.Conn().RemotePeer(), data.MessageData.Id, data.Hash, data.PackageId)
@@ -455,6 +457,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 			downloadInfo.done <- fmt.Errorf("failed to open file: %s", filename)
 			return
 		}
+		defer f.Close()
 		_, err = f.Write(data.Data)
 		if err != nil {
 			downloadInfo.done <- fmt.Errorf("failed to write data to file: %s", filename)

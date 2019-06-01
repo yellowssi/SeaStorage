@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package user provides the client platform for user.
 package user
 
 import (
@@ -196,8 +197,6 @@ func (c *Client) GetSharedINode(p string) (tpStorage.INode, error) {
 	return c.User.Root.GetSharedINode(p, name)
 }
 
-// TODO: Create Directory & Create All Directory
-
 // CreateDirectory create new directory of the path and send transaction.
 func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 	p = c.fixPath(p)
@@ -212,6 +211,39 @@ func (c *Client) CreateDirectory(p string) (map[string]interface{}, error) {
 		PWD:    p,
 	}}, addresses, addresses, lib.DefaultWait)
 	return response, err
+}
+
+// CreateDirectoryWithFiles upload directory and files in it from source path in system to destination path.
+func (c *Client) CreateDirectoryWithFiles(src, dst string, dataShards, parShards int) ([]map[string]interface{}, error) {
+	dst = c.fixPath(dst)
+	resources, err := ioutil.ReadDir(src)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.CreateDirectory(dst)
+	if err != nil {
+		return nil, err
+	}
+	responses := []map[string]interface{}{response}
+
+	for _, resource := range resources {
+		if resource.IsDir() {
+			resp, err := c.CreateDirectoryWithFiles(path.Join(src, resource.Name()), path.Join(dst, resource.Name()), dataShards, parShards)
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload directory: %s", path.Join(src, resource.Name()))
+			} else {
+				responses = append(responses, resp...)
+			}
+		} else {
+			resp, err := c.CreateFile(path.Join(src, resource.Name()), dst, dataShards, parShards)
+			if err != nil {
+				return nil, fmt.Errorf("failed to upload file: %s", path.Join(src, resource.Name()))
+			} else {
+				responses = append(responses, resp)
+			}
+		}
+	}
+	return responses, nil
 }
 
 // CreateFile create new file of the source.
@@ -291,7 +323,10 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 		}(f, fragment.Hash, fragment.Size, seas[i])
 	}
 	wg.Wait()
-	lib.Logger.WithFields(logrus.Fields{}).Info("file upload finish")
+	// TODO: goroutine for watching for state and delete fragments
+	lib.Logger.WithFields(logrus.Fields{
+		"filename": fileInfo.Name,
+	}).Info("file upload finish")
 }
 
 // Rename change the target name to new name.

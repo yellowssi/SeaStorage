@@ -210,15 +210,24 @@ communicating with the transaction processor.`,
 			case "mkdir":
 				if len(commands) < 2 {
 					fmt.Println(errMissingOperand)
-				} else if len(commands) > 2 {
-					fmt.Println(errInvalidPath)
-				} else {
+				} else if len(commands) == 2 {
 					response, err = cli.CreateDirectory(commands[1])
 					if err != nil {
 						fmt.Println(err)
 					} else {
 						lib.PrintResponse(response)
 					}
+				} else if len(commands) == 3 {
+					responses, err := cli.CreateDirectoryWithFiles(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					if err != nil {
+						fmt.Println(err)
+					} else {
+						for _, resp := range responses {
+							lib.PrintResponse(resp)
+						}
+					}
+				} else {
+					fmt.Println(errInvalidPath)
 				}
 			case "touch":
 				if len(commands) < 3 {
@@ -419,7 +428,7 @@ func init() {
 	// userCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// printINodeInfo display the informations of iNode.
+// printINodeInfo display the information of iNode.
 func printINodeInfo(iNodes []tpStorage.INodeInfo) {
 	fmt.Println("Total", len(iNodes), "items.")
 	w := new(tabwriter.Writer)
