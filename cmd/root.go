@@ -92,6 +92,7 @@ func initConfig() {
 		viper.AddConfigPath(lib.DefaultConfigPath)
 		viper.SetConfigName(lib.DefaultConfigFilename)
 		if _, err := os.Stat(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json")); os.IsNotExist(err) {
+			os.MkdirAll(lib.DefaultConfigPath, 0755)
 			cf, err := os.Create(path.Join(lib.DefaultConfigPath, lib.DefaultConfigFilename+".json"))
 			if err != nil {
 				panic(err)
