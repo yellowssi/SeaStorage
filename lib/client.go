@@ -16,7 +16,6 @@ package lib
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -102,7 +101,7 @@ func (cf *ClientFramework) Register(name string) error {
 	}
 	seaStoragePayload.Target = []string{name}
 	cf.Name = name
-	return cf.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()}, 0)
+	return cf.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()})
 }
 
 // GetData returns the data of user or sea.
@@ -149,7 +148,7 @@ func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
 }
 
 // GetStatus returns the status of batch.
-func (cf *ClientFramework) getStatus(batchID string, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) getStatus(batchID string, wait int64) (map[string]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusAPI, batchID, wait)
 	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
@@ -162,7 +161,7 @@ func (cf *ClientFramework) getStatus(batchID string, wait uint) (map[string]inte
 }
 
 // SendTransaction send transactions by the batch.
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) (string, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -180,7 +179,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to serialize transaction header: %v", err)
+			return "", fmt.Errorf("unable to serialize transaction header: %v", err)
 		}
 
 		// Signature of TransactionHeader
@@ -199,44 +198,27 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	// Get BatchList
 	rawBatchList, err := cf.createBatchList(transactions)
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct batch list: %v", err)
+		return "", fmt.Errorf("unable to construct batch list: %v", err)
 	}
-	batchID := rawBatchList.Batches[0].HeaderSignature
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return nil, fmt.Errorf("unable to serialize batch list: %v", err)
+		return "", fmt.Errorf("unable to serialize batch list: %v", err)
 	}
 
-	if wait > 0 {
-		waitTime := uint(0)
-		startTime := time.Now()
-		response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
-		if err != nil {
-			return nil, err
-		}
-		for waitTime < wait {
-			status, err := cf.getStatus(batchID, wait-waitTime)
-			if err != nil {
-				return nil, err
-			}
-			waitTime = uint(time.Now().Sub(startTime))
-			if status["status"].(string) != "PENDING" {
-				return response, nil
-			}
-		}
-		return response, nil
+	response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
+	if err != nil {
+		return "", err
 	}
-
-	return sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
+	return strings.Split(response["link"].(string), "id=")[1], nil
 }
 
 // SendTransactionAndWaiting send transaction by the batch and waiting for the batches committed.
-func (cf *ClientFramework) SendTransactionAndWaiting(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) error {
-	response, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs, wait)
+func (cf *ClientFramework) SendTransactionAndWaiting(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) error {
+	batchID, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs)
 	if err != nil {
 		return err
 	}
-	return cf.WaitingForCommitted(strings.Split(response["link"].(string), "id=")[1])
+	return cf.WaitingForCommitted(batchID)
 }
 
 // create the list of batches.
@@ -292,7 +274,7 @@ func (cf *ClientFramework) WaitingForCommitted(blockID string) error {
 	select {
 	case err := <-cf.done:
 		return err
-	case <-time.After(time.Minute):
+	case <-time.After(DefaultWait):
 		return errors.New("waiting for committed timeout")
 	}
 }
@@ -422,13 +404,4 @@ func GenerateKey(keyName string, keyPath string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// PrintResponse display the response in JSON.
-func PrintResponse(response map[string]interface{}) {
-	data, err := json.MarshalIndent(response, "", "\t")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(string(data))
 }

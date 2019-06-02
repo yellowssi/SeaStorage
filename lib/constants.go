@@ -18,6 +18,7 @@ import (
 	"crypto/aes"
 	"os/user"
 	"path"
+	"time"
 
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
@@ -50,7 +51,7 @@ const (
 	// DefaultTmpPath is used for storing temp file.
 	DefaultTmpPath string = "/tmp/SeaStorage"
 	// DefaultWait is the waiting time for batch commits.
-	DefaultWait uint = 60
+	DefaultWait = time.Minute
 	// DefaultQueryLimit is the limit of state queries.
 	DefaultQueryLimit uint = 20
 	// EncryptSuffix is the encrypted file's suffix.

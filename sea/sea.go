@@ -190,23 +190,23 @@ func (c *Client) ConfirmSeaOperations() {
 			case tpSea.ActionGroupShared:
 			}
 		}
-		response, err := c.sendSeaOperations(operations)
+		err := c.sendSeaOperations(operations)
 		if err != nil {
-			lib.Logger.Error("failed to send transaction")
+			lib.Logger.Errorf("failed to send transaction: %v", err)
 			return
 		}
-		lib.Logger.Info("confirm sea operation transaction sent success:", response)
+		lib.Logger.Info("confirm sea operation transaction sent success")
 		c.Sea.RemoveOperations(operations)
 	}
 }
 
 // sendSeaOperations send transactions for confirming sea's operations.
-func (c *Client) sendSeaOperations(operations []tpSea.Operation) (map[string]interface{}, error) {
+func (c *Client) sendSeaOperations(operations []tpSea.Operation) error {
 	payload := tpPayload.SeaStoragePayload{
 		Name:          c.Name,
 		Action:        tpPayload.SeaConfirmOperations,
 		SeaOperations: operations,
 	}
 	addresses := []string{c.GetAddress()}
-	return c.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
+	return c.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{payload}, addresses, addresses)
 }

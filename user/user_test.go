@@ -56,11 +56,10 @@ func TestClient_ChangePWD(t *testing.T) {
 }
 
 func TestClient_CreateDirectory(t *testing.T) {
-	response, err := cli.CreateDirectory("/SeaStorage")
+	err := cli.CreateDirectory("/SeaStorage")
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(response)
 }
 
 func TestClient_GetINode(t *testing.T) {
@@ -72,11 +71,10 @@ func TestClient_GetINode(t *testing.T) {
 }
 
 func TestClient_CreateFile(t *testing.T) {
-	response, err := cli.CreateFile("/etc/hostname", "/SeaStorage", lib.DefaultDataShards, lib.DefaultParShards)
+	err := cli.CreateFile("/etc/hostname", "/SeaStorage", lib.DefaultDataShards, lib.DefaultParShards)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(response)
 	time.Sleep(2 * time.Minute)
 }
 
@@ -86,17 +84,15 @@ func TestClient_DownloadFiles(t *testing.T) {
 }
 
 func TestClient_DeleteFile(t *testing.T) {
-	response, err := cli.DeleteFile("/SeaStorage/hostname")
+	err := cli.DeleteFile("/SeaStorage/hostname")
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(response)
 }
 
 func TestClient_DeleteDirectory(t *testing.T) {
-	response, err := cli.DeleteDirectory("/SeaStorage")
+	err := cli.DeleteDirectory("/SeaStorage")
 	if err != nil {
 		t.Error(err)
 	}
-	t.Log(response)
 }

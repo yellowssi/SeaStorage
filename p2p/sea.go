@@ -135,12 +135,9 @@ func (s *SeaNode) SendUserOperations() {
 			}
 			addresses = append(addresses, operation.Address)
 		}
-		resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
+		resp, err := s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses)
 		if err != nil {
-			resp, err = s.SendTransaction([]tpPayload.SeaStoragePayload{payload}, addresses, addresses, lib.DefaultWait)
-			if err != nil {
-				lib.Logger.Error("failed to send transactions")
-			}
+			lib.Logger.Errorf("failed to send operations: %v", err)
 		} else {
 			lib.Logger.WithFields(logrus.Fields{
 				"response": resp,
