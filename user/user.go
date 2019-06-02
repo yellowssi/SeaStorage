@@ -237,12 +237,12 @@ func (c *Client) CreateDirectoryWithFiles(src, dst string, dataShards, parShards
 	}
 	var wg sync.WaitGroup
 	for i, info := range infos {
-		fileInfo := info["info"].(tpStorage.FileInfo)
 		wg.Add(1)
-		go func() {
+		go func(info map[string]interface{}, index int) {
 			defer wg.Done()
-			c.uploadFile(fileInfo, info["dst"].(string), fileSeas[i])
-		}()
+			fileInfo := info["info"].(tpStorage.FileInfo)
+			c.uploadFile(fileInfo, info["dst"].(string), fileSeas[index])
+		}(info, i)
 	}
 	wg.Wait()
 	return nil
@@ -528,13 +528,15 @@ func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, 
 		switch iNode.(type) {
 		case *tpStorage.File:
 			wg.Add(1)
-			go func() {
+			go func(f *tpStorage.File) {
 				defer wg.Done()
-				c.downloadFile(iNode.(*tpStorage.File), owner, path.Join(dst, dir.Name))
-			}()
+				c.downloadFile(f, owner, path.Join(dst, dir.Name))
+			}(iNode.(*tpStorage.File))
 		case *tpStorage.Directory:
 			wg.Add(1)
-			go c.downloadDirectory(iNode.(*tpStorage.Directory), owner, path.Join(dst, dir.Name), wg)
+			go func(d *tpStorage.Directory) {
+				c.downloadDirectory(d, owner, path.Join(dst, dir.Name), wg)
+			}(iNode.(*tpStorage.Directory))
 		}
 	}
 }
