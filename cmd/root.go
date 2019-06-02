@@ -73,7 +73,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&version, "version", "v", false, "the version of SeaStorage")
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file(json)")
 	rootCmd.PersistentFlags().StringVarP(&name, "name", "n", GetDefaultUsername(), "the name of user/sea")
-	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the sawtooth rest api")
+	rootCmd.PersistentFlags().StringVarP(&lib.TPURL, "url", "u", lib.DefaultTPURL, "the hyperledger sawtooth rest api url")
+	rootCmd.PersistentFlags().StringVarP(&lib.ValidatorURL, "validator", "V", lib.DefaultValidatorURL, "the hyperledger sawtooth validator tcp url")
 	rootCmd.PersistentFlags().StringVarP(&lib.PrivateKeyFile, "key", "k", lib.DefaultPrivateKeyFile, "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
 	rootCmd.PersistentFlags().StringVarP(&lib.ListenAddress, "listen", "l", lib.DefaultListenAddress, "the listen address for p2p network")
@@ -115,6 +116,10 @@ func initConfig() {
 		tpURL := viper.GetString("url")
 		if tpURL != "" {
 			lib.DefaultTPURL = tpURL
+		}
+		validatorURL := viper.GetString("validator")
+		if validatorURL != "" {
+			lib.DefaultValidatorURL = validatorURL
 		}
 		privateKeyFile := viper.GetString("key")
 		if privateKeyFile != "" {
@@ -202,6 +207,7 @@ func initBootstrapNodes() {
 func initConfigJSON() []byte {
 	cfg := make(map[string]interface{})
 	cfg["url"] = lib.DefaultTPURL
+	cfg["validator"] = lib.DefaultValidatorURL
 	cfg["key"] = GetDefaultKeyFile()
 	cfg["listen"] = lib.DefaultListenAddress
 	cfg["port"] = lib.DefaultListenPort

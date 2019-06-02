@@ -24,8 +24,10 @@ import (
 )
 
 var (
-	// TPURL is the Hyperledger Sawtooth rest api url
+	// TPURL is the Hyperledger Sawtooth rest api url.
 	TPURL string
+	// ValidatorURL is the Hyperledger Sawtooth validator tcp url.
+	ValidatorURL string
 	// StoragePath is the path that provided storage resources by sea.
 	StoragePath string
 	// StorageSize is the limit size of the storage resources.
@@ -86,8 +88,10 @@ const (
 var (
 	// Logger provides log function.
 	Logger *logrus.Logger
-	// DefaultTPURL is the default Hyperledger Sawtooth rest api.
+	// DefaultTPURL is the default Hyperledger Sawtooth rest api url.
 	DefaultTPURL = "http://101.132.168.252:8008"
+	// DefaultValidatorURL is the default Hyperledger Sawtooth validator tcp url.
+	DefaultValidatorURL = "tcp://101.132.168.252:4004"
 	// DefaultListenAddress is the default listen address for P2P network node.
 	DefaultListenAddress = "0.0.0.0"
 	// DefaultListenPort is the default listen port for P2P network node.

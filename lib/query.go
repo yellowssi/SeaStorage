@@ -91,7 +91,7 @@ func ListSeasPublicKey(start string, limit uint) ([]string, error) {
 
 // sendRequest send the request to the Hyperledger Sawtooth rest api by giving url.
 func sendRequest(url string, data []byte, contentType string) (map[string]interface{}, error) {
-	// SendUploadQuery request to validator URL
+	// SendUploadQuery request to validator rest api
 	var response *http.Response
 	var err error
 	if len(data) > 0 {
