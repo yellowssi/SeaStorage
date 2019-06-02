@@ -17,7 +17,7 @@ func init() {
 }
 
 func TestClientFramework_Register(t *testing.T) {
-	_, err := c.Register("Test")
+	err := c.Register("Test")
 	if err != nil {
 		t.Error(err)
 	}

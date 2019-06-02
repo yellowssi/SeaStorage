@@ -16,6 +16,7 @@ require (
 	github.com/manifoldco/promptui v0.3.2
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/nicksnyder/go-i18n v1.10.0 // indirect
+	github.com/pebbe/zmq4 v1.0.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.4
 	github.com/spf13/viper v1.4.0

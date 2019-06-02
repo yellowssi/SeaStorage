@@ -16,7 +16,6 @@ package lib
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,12 +24,19 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/sawtooth-sdk-go/messaging"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/batch_pb2"
+	"github.com/hyperledger/sawtooth-sdk-go/protobuf/client_event_pb2"
+	"github.com/hyperledger/sawtooth-sdk-go/protobuf/events_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
+	"github.com/hyperledger/sawtooth-sdk-go/protobuf/validator_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
+	"github.com/pebbe/zmq4"
+	"github.com/sirupsen/logrus"
 	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
 	tpPayload "github.com/yellowssi/SeaStorage-TP/payload"
 	tpState "github.com/yellowssi/SeaStorage-TP/state"
@@ -43,24 +49,13 @@ const (
 	ClientCategorySea  = false
 )
 
-// The status of Hyperledger Sawtooth transaction.
-const (
-	StatusPending   = "PENDING"
-	StatusCommitted = "COMMITTED"
-	StatusInvalid   = "INVALID"
-)
-
-// The error response of Hyperledger Sawtooth transaction.
-var (
-	errWaitingForCommitted = errors.New("waiting for committed")
-	errInvalidTransaction  = errors.New("invalid transaction")
-)
-
 // ClientFramework provides SeaStorage base operations for both user and sea.
 type ClientFramework struct {
 	Name     string // The name of user or sea.
 	Category bool   // The category of client framework.
 	signer   *signing.Signer
+	zmqConn  *messaging.ZmqConnection
+	done     chan error
 }
 
 // NewClientFramework is the construct for ClientFramework.
@@ -80,11 +75,24 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 	privateKey := signing.NewSecp256k1PrivateKey(tpCrypto.HexToBytes(string(privateKeyHex)))
 	cryptoFactory := signing.NewCryptoFactory(signing.NewSecp256k1Context())
 	signer := cryptoFactory.NewSigner(privateKey)
-	return &ClientFramework{Name: name, Category: category, signer: signer}, nil
+	cf := &ClientFramework{
+		Name:     name,
+		Category: category,
+		signer:   signer,
+		done:     make(chan error),
+	}
+	err = cf.generateZmqConnection()
+	return cf, err
+}
+
+// Close is the deconstruct for ClientFramework.
+func (cf *ClientFramework) Close() {
+	close(cf.done)
+	cf.zmqConn.Close()
 }
 
 // Register user or sea. Create user or sea in the blockchain.
-func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
+func (cf *ClientFramework) Register(name string) error {
 	var seaStoragePayload tpPayload.SeaStoragePayload
 	if cf.Category {
 		seaStoragePayload.Action = tpPayload.CreateUser
@@ -93,14 +101,7 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 	seaStoragePayload.Target = []string{name}
 	cf.Name = name
-	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()}, 0)
-	if err != nil {
-		return nil, err
-	}
-	if cf.waitingForRegister(60) {
-		return response, nil
-	}
-	return response, errWaitingForCommitted
+	return cf.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()})
 }
 
 // GetData returns the data of user or sea.
@@ -147,7 +148,7 @@ func (cf *ClientFramework) DecryptFileKey(key string) ([]byte, error) {
 }
 
 // GetStatus returns the status of batch.
-func (cf *ClientFramework) getStatus(batchID string, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) getStatus(batchID string, wait int64) (map[string]interface{}, error) {
 	// API to call
 	apiSuffix := fmt.Sprintf("%s?id=%s&wait=%d", BatchStatusAPI, batchID, wait)
 	response, err := sendRequestByAPISuffix(apiSuffix, []byte{}, "")
@@ -160,7 +161,7 @@ func (cf *ClientFramework) getStatus(batchID string, wait uint) (map[string]inte
 }
 
 // SendTransaction send transactions by the batch.
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) (map[string]interface{}, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) (string, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -178,7 +179,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to serialize transaction header: %v", err)
+			return "", fmt.Errorf("unable to serialize transaction header: %v", err)
 		}
 
 		// Signature of TransactionHeader
@@ -197,35 +198,27 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	// Get BatchList
 	rawBatchList, err := cf.createBatchList(transactions)
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct batch list: %v", err)
+		return "", fmt.Errorf("unable to construct batch list: %v", err)
 	}
-	batchID := rawBatchList.Batches[0].HeaderSignature
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return nil, fmt.Errorf("unable to serialize batch list: %v", err)
+		return "", fmt.Errorf("unable to serialize batch list: %v", err)
 	}
 
-	if wait > 0 {
-		waitTime := uint(0)
-		startTime := time.Now()
-		response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
-		if err != nil {
-			return nil, err
-		}
-		for waitTime < wait {
-			status, err := cf.getStatus(batchID, wait-waitTime)
-			if err != nil {
-				return nil, err
-			}
-			waitTime = uint(time.Now().Sub(startTime))
-			if status["status"].(string) != "PENDING" {
-				return response, nil
-			}
-		}
-		return response, nil
+	response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
+	if err != nil {
+		return "", err
 	}
+	return strings.Split(response["link"].(string), "id=")[1], nil
+}
 
-	return sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
+// SendTransactionAndWaiting send transaction by the batch and waiting for the batches committed.
+func (cf *ClientFramework) SendTransactionAndWaiting(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) error {
+	batchID, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs)
+	if err != nil {
+		return err
+	}
+	return cf.WaitingForCommitted(batchID)
 }
 
 // create the list of batches.
@@ -262,32 +255,135 @@ func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Trans
 	}, nil
 }
 
-// waiting for batch committed for register.
-func (cf *ClientFramework) waitingForRegister(wait uint) bool {
-	result := make(chan bool)
-	defer close(result)
+// WaitingForCommitted wait for batches committed.
+// If timeout or batches invalid, it will return error.
+func (cf *ClientFramework) WaitingForCommitted(blockID string) error {
+	subscription := &events_pb2.EventSubscription{
+		EventType: "sawtooth/block-commit",
+		Filters: []*events_pb2.EventFilter{{
+			Key:        blockID,
+			FilterType: events_pb2.EventFilter_SIMPLE_ANY,
+		}},
+	}
 	go func() {
-		ticker := time.NewTicker(time.Duration(1) * time.Second)
-		i := uint(0)
-		for i <= wait {
-			select {
-			case <-ticker.C:
-				u, err := cf.GetData()
-				if err == nil && u != nil {
-					result <- true
-					return
-				}
-				i++
-			}
+		err := cf.subscribeEvents([]*events_pb2.EventSubscription{subscription})
+		if err != nil {
+			cf.done <- err
 		}
-		result <- false
 	}()
-	return <-result
+	select {
+	case err := <-cf.done:
+		return err
+	case <-time.After(DefaultWait):
+		return errors.New("waiting for committed timeout")
+	}
 }
 
-// TODO: Subscribing events
-//func (c *ClientFramework) subscribingToEvents(action string, id string) error {
-//}
+func (cf *ClientFramework) subscribeEvents(subscriptions []*events_pb2.EventSubscription) error {
+	// Construct the subscribeRequest
+	subscribeRequest := &client_event_pb2.ClientEventsSubscribeRequest{
+		Subscriptions: subscriptions,
+	}
+	requestBytes, err := proto.Marshal(subscribeRequest)
+	if err != nil {
+		return fmt.Errorf("failed to marshal subscription subscribeRequest: %v", err)
+	}
+	corrID, err := cf.zmqConn.SendNewMsg(validator_pb2.Message_CLIENT_EVENTS_SUBSCRIBE_REQUEST, requestBytes)
+	if err != nil {
+		return fmt.Errorf("failed to send subscription message: %v", err)
+	}
+	// Received subscription response
+	_, response, err := cf.zmqConn.RecvMsgWithId(corrID)
+	if err != nil {
+		return fmt.Errorf("failed to received subscribe event response: %v", err)
+	}
+	subscribeResponse := &client_event_pb2.ClientEventsSubscribeResponse{}
+	err = proto.Unmarshal(response.Content, subscribeResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal subscribe response: %v", err)
+	}
+	if subscribeResponse.Status != client_event_pb2.ClientEventsSubscribeResponse_OK {
+		return errors.New("failed to subscribe event")
+	}
+	defer func(correlationID string) {
+		err := cf.unsubscribeEvents(correlationID)
+		if err != nil {
+			Logger.WithFields(logrus.Fields{
+				"correlationID": correlationID,
+			}).Error(err)
+		}
+	}(corrID)
+	cf.subscribeHandler()
+	return nil
+}
+
+func (cf *ClientFramework) unsubscribeEvents(corrID string) error {
+	// Construct the UnsubscribeRequest
+	unsubscribeRequest := &client_event_pb2.ClientEventsUnsubscribeRequest{}
+	unsubscribeRequestBytes, err := proto.Marshal(unsubscribeRequest)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{
+			"correlationID": corrID,
+		}).Errorf("failed to unsubscribe event: %v", err)
+	}
+	id, err := cf.zmqConn.SendNewMsg(validator_pb2.Message_CLIENT_EVENTS_UNSUBSCRIBE_REQUEST, unsubscribeRequestBytes)
+	if err != nil {
+		return fmt.Errorf("faield to send unsubscribe event message: %v", err)
+	}
+	// Received the unsubscription response
+	_, response, err := cf.zmqConn.RecvMsgWithId(id)
+	if err != nil {
+		return fmt.Errorf("failed to received unsubcribe event response: %v", err)
+	}
+	unsubscribeResponse := &client_event_pb2.ClientEventsUnsubscribeResponse{}
+	err = proto.Unmarshal(response.Content, unsubscribeResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal unsubscribe event response: %v", err)
+	}
+	if unsubscribeResponse.Status != client_event_pb2.ClientEventsUnsubscribeResponse_OK {
+		return errors.New("failed to unsubscribe event")
+	}
+	return nil
+}
+
+func (cf *ClientFramework) subscribeHandler() {
+	for {
+		_, message, err := cf.zmqConn.RecvMsg()
+		if err != nil {
+			Logger.Errorf("zmq failed to received message: %v", err)
+			continue
+		}
+		if message.MessageType != validator_pb2.Message_CLIENT_EVENTS {
+			continue
+		}
+		eventList := &events_pb2.EventList{}
+		err = proto.Unmarshal(message.Content, eventList)
+		if err != nil {
+			Logger.WithFields(logrus.Fields{
+				"message": message.String(),
+			}).Error("failed unmarshal message")
+			continue
+		}
+		Logger.Info(message.String())
+		Logger.Info(eventList.String())
+		cf.done <- nil
+		break
+	}
+}
+
+func (cf *ClientFramework) generateZmqConnection() error {
+	// Setup a connection to the validator
+	ctx, err := zmq4.NewContext()
+	if err != nil {
+		return err
+	}
+	zmqConn, err := messaging.NewConnection(ctx, zmq4.DEALER, ValidatorURL, false)
+	if err != nil {
+		return err
+	}
+	cf.zmqConn = zmqConn
+	return nil
+}
 
 // GenerateKey generate key pair (Secp256k1) and store them in the storage path.
 func GenerateKey(keyName string, keyPath string) {
@@ -308,13 +404,4 @@ func GenerateKey(keyName string, keyPath string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// PrintResponse display the response in JSON.
-func PrintResponse(response map[string]interface{}) {
-	data, err := json.MarshalIndent(response, "", "\t")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(string(data))
 }

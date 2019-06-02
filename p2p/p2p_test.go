@@ -20,13 +20,11 @@ import (
 )
 
 var userCli, seaCli *lib.ClientFramework
-var seaNode *SeaNode
 var userNode *UserNode
 var seaPeer p2pPeer.ID
 var seaPub string
-var userPeer p2pPeer.ID
-var pubHash, priHash string
-var pubSize, priSize int64
+var pubHash string
+var pubSize int64
 
 func init() {
 	lib.Logger = logrus.New()
@@ -44,7 +42,7 @@ func init() {
 	seaCtx := context.Background()
 	seaHost, _ := libp2p.New(seaCtx, libp2p.ListenAddrs(seaAddr), libp2p.Identity(seaPriv))
 	seaPeer = seaHost.ID()
-	seaNode, _ = NewSeaNode(seaCli, "./test", lib.DefaultStorageSize, seaHost)
+	_, _ = NewSeaNode(seaCli, "./test", lib.DefaultStorageSize, seaHost)
 	userCli, _ = lib.NewClientFramework("test", lib.ClientCategoryUser, "./test/user.priv")
 	userAddr, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6666")
 	userPrivBytes, _ := ioutil.ReadFile("./test/user.priv")
@@ -56,30 +54,19 @@ func init() {
 	sma, _ := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/6667/p2p/" + seaPeer.String())
 	seaInfo, _ := p2pPeerstore.AddrInfoFromP2pAddr(sma)
 	_ = userHost.Connect(userCtx, *seaInfo)
-	userPeer = userHost.ID()
 	userNode = NewUserNode(userHost, userCli)
 }
 
 func TestUpload(t *testing.T) {
-	go func() {
-		src, _ := os.Open("./test/user.pub")
-		stat, _ := src.Stat()
-		pubSize = stat.Size()
-		pubHash, _ = crypto.CalFileHash(src)
-		userNode.Upload(src, "/", "test", pubHash, pubSize, []string{seaPub})
-	}()
-	go func() {
-		src, _ := os.Open("./test/user.priv")
-		stat, _ := src.Stat()
-		priSize = stat.Size()
-		priHash, _ = crypto.CalFileHash(src)
-		userNode.Upload(src, "/", "test", priHash, priSize, []string{seaPub})
-	}()
+	src, _ := os.Open("./test/user.pub")
+	stat, _ := src.Stat()
+	pubSize = stat.Size()
+	pubHash, _ = crypto.CalFileHash(src)
+	userNode.Upload(src, "/", "test", pubHash, pubSize, []string{seaPub})
 	time.Sleep(5 * time.Second)
 }
 
 func TestDownload(t *testing.T) {
 	go userNode.SendDownloadProtocol(seaPeer, "./test/", "", pubHash, pubSize)
-	go userNode.SendDownloadProtocol(seaPeer, "./test/", "", priHash, priSize)
 	time.Sleep(5 * time.Second)
 }

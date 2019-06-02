@@ -77,7 +77,6 @@ communicating with the transaction processor.`,
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		var response map[string]interface{}
 		for {
 			prompt := promptui.Prompt{
 				Label:     cli.PWD + " ",
@@ -95,7 +94,6 @@ communicating with the transaction processor.`,
 					return fmt.Errorf("command not found: %v", commands[0])
 				},
 			}
-			response = nil
 			err = nil
 			input, err := prompt.Run()
 			if err != nil {
@@ -211,18 +209,14 @@ communicating with the transaction processor.`,
 				if len(commands) < 2 {
 					fmt.Println(errMissingOperand)
 				} else if len(commands) == 2 {
-					response, err = cli.CreateDirectory(commands[1])
+					err = cli.CreateDirectory(commands[1])
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				} else if len(commands) == 3 {
-					response, err := cli.CreateDirectoryWithFiles(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					err := cli.CreateDirectoryWithFiles(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				} else {
 					fmt.Println(errInvalidPath)
@@ -234,11 +228,9 @@ communicating with the transaction processor.`,
 					fmt.Println(errInvalidPath)
 				} else {
 					// TODO: Select Sea To Store File & Select data shards
-					response, err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
+					err = cli.CreateFile(commands[1], commands[2], lib.DefaultDataShards, lib.DefaultParShards)
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				}
 			case "rename":
@@ -247,11 +239,9 @@ communicating with the transaction processor.`,
 				} else if len(commands) > 3 {
 					fmt.Println(errInvalidPath)
 				} else {
-					response, err = cli.Rename(commands[1], commands[2])
+					err = cli.Rename(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				}
 			case "rm":
@@ -281,7 +271,7 @@ communicating with the transaction processor.`,
 					}
 					switch conf {
 					case "y", "Y":
-						response, err = cli.DeleteDirectory(commands[1])
+						err = cli.DeleteDirectory(commands[1])
 					default:
 						continue
 					}
@@ -298,15 +288,13 @@ communicating with the transaction processor.`,
 					}
 					switch conf {
 					case "y", "Y":
-						response, err = cli.DeleteFile(commands[1])
+						err = cli.DeleteFile(commands[1])
 					default:
 						continue
 					}
 				}
 				if err != nil {
 					fmt.Println(err)
-				} else {
-					lib.PrintResponse(response)
 				}
 			case "mv":
 				if len(commands) < 3 {
@@ -314,11 +302,9 @@ communicating with the transaction processor.`,
 				} else if len(commands) > 3 {
 					fmt.Println(errInvalidPath)
 				} else {
-					response, err := cli.Move(commands[1], commands[2])
+					err := cli.Move(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				}
 			case "get":
@@ -386,11 +372,9 @@ communicating with the transaction processor.`,
 				} else if len(commands) > 2 {
 					fmt.Println(errInvalidPath)
 				} else {
-					response, err = cli.PublishKey(commands[1])
+					err = cli.PublishKey(commands[1])
 					if err != nil {
 						fmt.Println(err)
-					} else {
-						lib.PrintResponse(response)
 					}
 				}
 			case "share":
@@ -399,11 +383,10 @@ communicating with the transaction processor.`,
 				} else if len(commands) > 3 {
 					fmt.Println(errInvalidPath)
 				} else {
-					keys, response, err := cli.ShareFiles(commands[1], commands[2])
+					keys, err := cli.ShareFiles(commands[1], commands[2])
 					if err != nil {
 						fmt.Println(err)
 					} else {
-						lib.PrintResponse(response)
 						printKeys(keys)
 					}
 				}
