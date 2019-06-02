@@ -78,22 +78,10 @@ func GenerateFileInfo(target, publicKey, keyAes string, dataShards, parShards in
 
 	// Split File
 	var f *os.File
-	var fileInfo os.FileInfo
 	if inFileInfo.Size() >= lib.DefaultLargeFileSize {
-		f, err = os.Open(path.Join(lib.DefaultTmpPath, hash, hash))
-		if err != nil {
-			return
-		}
-		defer func() {
-			f.Close()
-		}()
-		fileInfo, err = f.Stat()
-		if err != nil {
-			return
-		}
 		info = tpStorage.FileInfo{
 			Name: inFileInfo.Name(),
-			Size: fileInfo.Size(),
+			Size: inFileInfo.Size(),
 			Hash: hash,
 			Key:  tpCrypto.BytesToHex(keyEncrypt),
 			Fragments: []*tpStorage.Fragment{{
@@ -111,6 +99,7 @@ func GenerateFileInfo(target, publicKey, keyAes string, dataShards, parShards in
 			f.Close()
 			os.Remove(f.Name())
 		}()
+		var fileInfo os.FileInfo
 		fileInfo, err = f.Stat()
 		if err != nil {
 			return
@@ -334,10 +323,10 @@ func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, d
 		return err
 	}
 	for i := range shards {
-		defer func() {
+		defer func(index int) {
 			shards[i].(*os.File).Close()
 			os.Remove(shards[i].(*os.File).Name())
-		}()
+		}(i)
 	}
 	return outFile.Truncate(int64(originalSize))
 }

@@ -586,7 +586,10 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	}
 	outFile.Close()
 	inFile, err := os.Open(outFile.Name())
-	defer inFile.Close()
+	defer func() {
+		inFile.Close()
+		os.Remove(inFile.Name())
+	}()
 	dstFile, err := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	defer dstFile.Close()
 	key, err := c.DecryptFileKey(c.User.Root.Keys.GetKey(f.KeyIndex).Key)

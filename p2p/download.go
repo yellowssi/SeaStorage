@@ -399,6 +399,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 			}
 			_, err = f.WriteAt(fragment, lib.PackageSize*i)
 		}
+		os.Remove(path.Join(lib.DefaultTmpPath, data.Hash))
 		err = f.Truncate(downloadInfo.size)
 		if err != nil {
 			downloadInfo.done <- fmt.Errorf("failed to truncate file: %s", targetFile)
