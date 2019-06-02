@@ -364,8 +364,6 @@ func (cf *ClientFramework) subscribeHandler() {
 			}).Error("failed unmarshal message")
 			continue
 		}
-		Logger.Info(message.String())
-		Logger.Info(eventList.String())
 		cf.done <- nil
 		break
 	}
