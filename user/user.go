@@ -136,7 +136,7 @@ func (c *Client) Sync() error {
 
 // UserRegister register user in the blockchain.
 func (c *Client) UserRegister() error {
-	_, err := c.Register(c.Name)
+	err := c.Register(c.Name)
 	if err != nil {
 		return err
 	}

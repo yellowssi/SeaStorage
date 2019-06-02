@@ -58,7 +58,7 @@ func NewSeaClient(name, keyFile string) (*Client, error) {
 
 // SeaRegister register the sea in the blockchain.
 func (c *Client) SeaRegister() error {
-	_, err := c.Register(c.Name)
+	err := c.Register(c.Name)
 	if err != nil {
 		return err
 	}

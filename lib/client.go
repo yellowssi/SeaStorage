@@ -93,7 +93,7 @@ func (cf *ClientFramework) Close() {
 }
 
 // Register user or sea. Create user or sea in the blockchain.
-func (cf *ClientFramework) Register(name string) (map[string]interface{}, error) {
+func (cf *ClientFramework) Register(name string) error {
 	var seaStoragePayload tpPayload.SeaStoragePayload
 	if cf.Category {
 		seaStoragePayload.Action = tpPayload.CreateUser
@@ -102,15 +102,7 @@ func (cf *ClientFramework) Register(name string) (map[string]interface{}, error)
 	}
 	seaStoragePayload.Target = []string{name}
 	cf.Name = name
-	response, err := cf.SendTransaction([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()}, 0)
-	if err != nil {
-		return nil, err
-	}
-	err = cf.WaitingForCommitted(strings.Split(response["link"].(string), "id=")[1])
-	if err != nil {
-		return response, err
-	}
-	return response, nil
+	return cf.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{seaStoragePayload}, []string{cf.GetAddress()}, []string{cf.GetAddress()}, 0)
 }
 
 // GetData returns the data of user or sea.
@@ -236,6 +228,15 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	}
 
 	return sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
+}
+
+// SendTransactionAndWaiting send transaction by the batch and waiting for the batches committed.
+func (cf *ClientFramework) SendTransactionAndWaiting(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string, wait uint) error {
+	response, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs, wait)
+	if err != nil {
+		return err
+	}
+	return cf.WaitingForCommitted(strings.Split(response["link"].(string), "id=")[1])
 }
 
 // create the list of batches.
