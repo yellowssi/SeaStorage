@@ -304,11 +304,11 @@ func (p *SeaUploadProtocol) onUploadRequest(s p2pNet.Stream) {
 		}
 		// Calculate the pubHash of file
 		f, err = os.Open(targetFile)
-		defer f.Close()
 		if err != nil {
 			lib.Logger.Errorf("failed to open file: %s", targetFile)
 			return
 		}
+		defer f.Close()
 		hash, err := crypto.CalFileHash(f)
 		if err != nil {
 			lib.Logger.Errorf("failed to calculate file pubHash: %s", targetFile)

@@ -22,15 +22,15 @@ import (
 // Copy the source file to the destination path.
 func Copy(srcPath, dstPath string) error {
 	src, err := os.OpenFile(srcPath, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
 	defer src.Close()
-	if err != nil {
-		return err
-	}
 	dst, err := os.OpenFile(dstPath, os.O_WRONLY | os.O_CREATE, 0600)
-	defer dst.Close()
 	if err != nil {
 		return err
 	}
+	defer dst.Close()
 	_, err = io.Copy(dst, src)
 	return err
 }

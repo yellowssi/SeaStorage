@@ -381,21 +381,25 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 	var wg sync.WaitGroup
 	for i, fragment := range fileInfo.Fragments {
 		f, subErr := os.Open(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
-		defer func() {
-			f.Close()
-			os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash, fmt.Sprintf("%s.%d", fileInfo.Hash, i)))
-		}()
 		if subErr != nil && os.IsNotExist(subErr) {
 			continue
 		}
 		wg.Add(1)
 		go func(src *os.File, hash string, size int64, seas []string) {
-			defer wg.Done()
+			defer func() {
+				wg.Done()
+				src.Close()
+			}()
 			c.Upload(src, dst, fileInfo.Name, hash, size, seas)
 		}(f, fragment.Hash, fragment.Size, seas[i])
 	}
 	wg.Wait()
-	// TODO: goroutine for watching for state and delete fragments
+	err := os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash))
+	if err != nil {
+		lib.Logger.WithFields(logrus.Fields{
+			"hash": fileInfo.Hash,
+		}).Warnf("failed to clean fragments: %v", err)
+	}
 	lib.Logger.WithFields(logrus.Fields{
 		"filename": fileInfo.Name,
 	}).Info("file upload finish")
@@ -590,7 +594,7 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 		inFile.Close()
 		os.Remove(inFile.Name())
 	}()
-	dstFile, err := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
+	dstFile, _ := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	defer dstFile.Close()
 	key, err := c.DecryptFileKey(c.User.Root.Keys.GetKey(f.KeyIndex).Key)
 	if err != nil {

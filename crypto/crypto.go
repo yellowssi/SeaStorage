@@ -322,12 +322,12 @@ func MergeFile(inPath string, hashes []string, outFile *os.File, originalSize, d
 	if err != nil {
 		return err
 	}
-	for i := range shards {
-		defer func(index int) {
+	defer func() {
+		for i := range shards {
 			shards[i].(*os.File).Close()
 			os.Remove(shards[i].(*os.File).Name())
-		}(i)
-	}
+		}
+	}()
 	return outFile.Truncate(int64(originalSize))
 }
 
