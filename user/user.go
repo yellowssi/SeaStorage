@@ -82,7 +82,6 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		return nil, err
 	}
 	n := p2p.NewUserNode(host, c)
-	// TODO: 当用户需要是启动监听，上传或下载结束后停止监听
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
 		return nil, err
@@ -394,7 +393,7 @@ func (c *Client) uploadFile(fileInfo tpStorage.FileInfo, dst string, seas [][]st
 		}(f, fragment.Hash, fragment.Size, seas[i])
 	}
 	wg.Wait()
-	err := os.Remove(path.Join(lib.DefaultTmpPath, fileInfo.Hash))
+	err := os.RemoveAll(path.Join(lib.DefaultTmpPath, fileInfo.Hash))
 	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
 			"hash": fileInfo.Hash,

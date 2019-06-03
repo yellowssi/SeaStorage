@@ -41,6 +41,7 @@ and listening for the P2P network.`,
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		defer cli.Close()
 		err = cli.Sync()
 		if err != nil {
 			err := cli.SeaRegister()

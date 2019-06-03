@@ -55,7 +55,7 @@ type ClientFramework struct {
 	Category bool   // The category of client framework.
 	signer   *signing.Signer
 	zmqConn  *messaging.ZmqConnection
-	done     chan error
+	signal   chan error
 }
 
 // NewClientFramework is the construct for ClientFramework.
@@ -79,7 +79,7 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 		Name:     name,
 		Category: category,
 		signer:   signer,
-		done:     make(chan error),
+		signal:   make(chan error),
 	}
 	err = cf.generateZmqConnection()
 	return cf, err
@@ -87,7 +87,7 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 
 // Close is the deconstruct for ClientFramework.
 func (cf *ClientFramework) Close() {
-	close(cf.done)
+	close(cf.signal)
 	cf.zmqConn.Close()
 }
 
@@ -268,11 +268,11 @@ func (cf *ClientFramework) WaitingForCommitted(blockID string) error {
 	go func() {
 		err := cf.subscribeEvents([]*events_pb2.EventSubscription{subscription})
 		if err != nil {
-			cf.done <- err
+			cf.signal <- err
 		}
 	}()
 	select {
-	case err := <-cf.done:
+	case err := <-cf.signal:
 		return err
 	case <-time.After(DefaultWait):
 		return errors.New("waiting for committed timeout")
@@ -364,7 +364,7 @@ func (cf *ClientFramework) subscribeHandler() {
 			}).Error("failed unmarshal message")
 			continue
 		}
-		cf.done <- nil
+		cf.signal <- nil
 		break
 	}
 }

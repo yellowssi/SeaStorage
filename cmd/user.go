@@ -32,6 +32,7 @@ import (
 
 var userCommands = []string{
 	"register",
+	"sync",
 	"whoami",
 	"cd",
 	"mkdir",
@@ -77,6 +78,7 @@ communicating with the transaction processor.`,
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		defer cli.Close()
 		for {
 			prompt := promptui.Prompt{
 				Label:     cli.PWD + " ",
@@ -118,14 +120,15 @@ communicating with the transaction processor.`,
 			} else if cli.User == nil {
 				fmt.Println("need register firstly")
 				continue
-			} else {
+			}
+			switch commands[0] {
+			case "sync":
 				err = cli.Sync()
 				if err != nil {
 					fmt.Println(err)
-					continue
+				} else {
+					fmt.Println("sync success")
 				}
-			}
-			switch commands[0] {
 			case "whoami":
 				cli.ClientFramework.Whoami()
 			case "cd":
