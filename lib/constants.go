@@ -60,13 +60,8 @@ const (
 	DefaultConfigFilename string = "config"
 	// PackageSize is the limit of each package's max size.
 	PackageSize int64 = 128 * 1024 * 1024
-
-	// Content types
-
 	// ContentTypeOctetStream is the content type for request.
 	ContentTypeOctetStream string = "application/octet-stream"
-	// ContentTypeJSON is the content type for request.
-	ContentTypeJSON string = "application/json"
 
 	// APIs
 
@@ -76,6 +71,7 @@ const (
 	BatchStatusAPI string = "batch_statuses"
 	// StateAPI is the api for getting data stored in the blockchain.
 	StateAPI string = "state"
+
 	// AES-CTR
 
 	// AESKeySize is the size of AES key.
