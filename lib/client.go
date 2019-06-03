@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/client_event_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/events_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_pb2"
+	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_receipt_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/protobuf/validator_pb2"
 	"github.com/hyperledger/sawtooth-sdk-go/signing"
 	"github.com/pebbe/zmq4"
@@ -55,6 +56,7 @@ type ClientFramework struct {
 	signer   *signing.Signer
 	zmqConn  *messaging.ZmqConnection
 	corrID   string
+	waiting  bool
 	signal   chan bool
 	State    chan []byte
 }
@@ -271,6 +273,8 @@ func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Trans
 // WaitingForCommitted wait for batches committed.
 // If timeout or batches invalid, it will return error.
 func (cf *ClientFramework) WaitingForCommitted() error {
+	cf.waiting = true
+	defer func() { cf.waiting = false }()
 	select {
 	case <-cf.signal:
 		return nil
@@ -371,9 +375,27 @@ func (cf *ClientFramework) subscribeHandler() {
 			continue
 		}
 		for _, event := range eventList.Events {
-			//Logger.Debug(event.String())
-			cf.signal <- true
-			cf.State <- event.Data
+			for _, attr := range event.Attributes {
+				if attr.Key == "address" && attr.Value == cf.GetAddress() {
+					if cf.waiting {
+						cf.signal <- true
+					}
+					stateChangeList := &txn_receipt_pb2.StateChangeList{}
+					err := proto.Unmarshal(event.Data, stateChangeList)
+					if err != nil {
+						Logger.Errorf("failed to unmarshal protobuf: %v", err)
+						continue
+					}
+					Logger.Info(stateChangeList.StateChanges)
+					for _, stateChange := range stateChangeList.StateChanges {
+						if stateChange.Address == cf.GetAddress() {
+							cf.State <- stateChange.Value
+							break
+						}
+					}
+					break
+				}
+			}
 		}
 	}
 }

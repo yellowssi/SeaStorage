@@ -18,14 +18,6 @@ package sea
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"path"
-	"sync"
-	"syscall"
-	"time"
-
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -37,6 +29,12 @@ import (
 	tpSea "github.com/yellowssi/SeaStorage-TP/sea"
 	"github.com/yellowssi/SeaStorage/lib"
 	"github.com/yellowssi/SeaStorage/p2p"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"path"
+	"sync"
+	"syscall"
 )
 
 // Client provides the platform for sea providing the storage resources in the P2P network.
@@ -52,7 +50,6 @@ func NewSeaClient(name, keyFile string) (*Client, error) {
 		return nil, err
 	}
 	cli := &Client{ClientFramework: c}
-	_ = cli.Sync()
 	return cli, nil
 }
 
@@ -145,8 +142,15 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")
 	go func() {
+		var data []byte
 		for {
-			time.Sleep(time.Minute)
+			data = <-c.State
+			s, err := tpSea.SeaFromBytes(data)
+			if err != nil {
+				lib.Logger.Errorf("failed to sync: %v", err)
+			} else {
+				c.Sea = s
+			}
 			c.ConfirmSeaOperations()
 		}
 	}()
@@ -157,11 +161,6 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 
 // ConfirmSeaOperations get the sea's operations from blockchain and operate them.
 func (c *Client) ConfirmSeaOperations() {
-	err := c.Sync()
-	if err != nil {
-		lib.Logger.Error("failed to sync:", err)
-		return
-	}
 	if len(c.Sea.Operations) > 0 {
 		operations := make([]tpSea.Operation, 0)
 		for _, operation := range c.Sea.Operations {

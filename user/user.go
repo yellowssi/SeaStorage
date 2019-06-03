@@ -21,14 +21,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gogo/protobuf/proto"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 	"sync"
 
-	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_receipt_pb2"
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -124,14 +122,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		var data []byte
 		for {
 			data = <-cli.State
-			stateChangeList := &txn_receipt_pb2.StateChangeList{}
-			err := proto.Unmarshal(data, stateChangeList)
-			if err != nil {
-				lib.Logger.Errorf("failed to unmarshal protobuf: %v", err)
-				continue
-			}
-			//lib.Logger.Info(stateChangeList.StateChanges[0].String())
-			u, err := tpUser.UserFromBytes(stateChangeList.StateChanges[0].Value)
+			u, err := tpUser.UserFromBytes(data)
 			if err != nil {
 				lib.Logger.Errorf("failed to sync: %v", err)
 			} else {
