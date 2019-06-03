@@ -24,7 +24,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -55,7 +54,9 @@ type ClientFramework struct {
 	Category bool   // The category of client framework.
 	signer   *signing.Signer
 	zmqConn  *messaging.ZmqConnection
-	signal   chan error
+	corrID   string
+	signal   chan bool
+	State    chan []byte
 }
 
 // NewClientFramework is the construct for ClientFramework.
@@ -79,14 +80,29 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 		Name:     name,
 		Category: category,
 		signer:   signer,
-		signal:   make(chan error),
+		signal:   make(chan bool),
+		State:    make(chan []byte),
 	}
 	err = cf.generateZmqConnection()
-	return cf, err
+	if err != nil {
+		return nil, err
+	}
+	err = cf.WatchingForState()
+	if err != nil {
+		return nil, err
+	}
+	go cf.subscribeHandler()
+	return cf, nil
 }
 
 // Close is the deconstruct for ClientFramework.
 func (cf *ClientFramework) Close() {
+	err := cf.unsubscribeEvents(cf.corrID)
+	if err != nil {
+		Logger.WithFields(logrus.Fields{
+			"correlationID": cf.corrID,
+		}).Errorf("failed to unsubscribe events: %v", err)
+	}
 	close(cf.signal)
 	cf.zmqConn.Close()
 }
@@ -161,7 +177,7 @@ func (cf *ClientFramework) getStatus(batchID string, wait int64) (map[string]int
 }
 
 // SendTransaction send transactions by the batch.
-func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) (string, error) {
+func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) (map[string]interface{}, error) {
 	var transactions []*transaction_pb2.Transaction
 
 	for _, seaStoragePayload := range seaStoragePayloads {
@@ -179,7 +195,7 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 		}
 		transactionHeader, err := proto.Marshal(&rawTransactionHeader)
 		if err != nil {
-			return "", fmt.Errorf("unable to serialize transaction header: %v", err)
+			return nil, fmt.Errorf("unable to serialize transaction header: %v", err)
 		}
 
 		// Signature of TransactionHeader
@@ -198,27 +214,24 @@ func (cf *ClientFramework) SendTransaction(seaStoragePayloads []tpPayload.SeaSto
 	// Get BatchList
 	rawBatchList, err := cf.createBatchList(transactions)
 	if err != nil {
-		return "", fmt.Errorf("unable to construct batch list: %v", err)
+		return nil, fmt.Errorf("unable to construct batch list: %v", err)
 	}
 	batchList, err := proto.Marshal(&rawBatchList)
 	if err != nil {
-		return "", fmt.Errorf("unable to serialize batch list: %v", err)
+		return nil, fmt.Errorf("unable to serialize batch list: %v", err)
 	}
 
-	response, err := sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
-	if err != nil {
-		return "", err
-	}
-	return strings.Split(response["link"].(string), "id=")[1], nil
+	return sendRequestByAPISuffix(BatchSubmitAPI, batchList, ContentTypeOctetStream)
 }
 
 // SendTransactionAndWaiting send transaction by the batch and waiting for the batches committed.
 func (cf *ClientFramework) SendTransactionAndWaiting(seaStoragePayloads []tpPayload.SeaStoragePayload, inputs, outputs []string) error {
-	batchID, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs)
+	response, err := cf.SendTransaction(seaStoragePayloads, inputs, outputs)
 	if err != nil {
 		return err
 	}
-	return cf.WaitingForCommitted(batchID)
+	Logger.Debug(response)
+	return cf.WaitingForCommitted()
 }
 
 // create the list of batches.
@@ -257,64 +270,59 @@ func (cf *ClientFramework) createBatchList(transactions []*transaction_pb2.Trans
 
 // WaitingForCommitted wait for batches committed.
 // If timeout or batches invalid, it will return error.
-func (cf *ClientFramework) WaitingForCommitted(blockID string) error {
-	subscription := &events_pb2.EventSubscription{
-		EventType: "sawtooth/block-commit",
-		Filters: []*events_pb2.EventFilter{{
-			Key:        blockID,
-			FilterType: events_pb2.EventFilter_SIMPLE_ANY,
-		}},
-	}
-	go func() {
-		err := cf.subscribeEvents([]*events_pb2.EventSubscription{subscription})
-		if err != nil {
-			cf.signal <- err
-		}
-	}()
+func (cf *ClientFramework) WaitingForCommitted() error {
 	select {
-	case err := <-cf.signal:
-		return err
+	case <-cf.signal:
+		return nil
 	case <-time.After(DefaultWait):
 		return errors.New("waiting for committed timeout")
 	}
 }
 
-func (cf *ClientFramework) subscribeEvents(subscriptions []*events_pb2.EventSubscription) error {
+func (cf *ClientFramework) WatchingForState() error {
+	subscription := &events_pb2.EventSubscription{
+		EventType: "sawtooth/state-delta",
+		Filters: []*events_pb2.EventFilter{{
+			Key:         "address",
+			MatchString: cf.GetAddress(),
+			FilterType:  events_pb2.EventFilter_SIMPLE_ANY,
+		}},
+	}
+	corrID, err := cf.subscribeEvents([]*events_pb2.EventSubscription{subscription})
+	if err != nil {
+		return err
+	}
+	cf.corrID = corrID
+	return nil
+}
+
+func (cf *ClientFramework) subscribeEvents(subscriptions []*events_pb2.EventSubscription) (string, error) {
 	// Construct the subscribeRequest
 	subscribeRequest := &client_event_pb2.ClientEventsSubscribeRequest{
 		Subscriptions: subscriptions,
 	}
 	requestBytes, err := proto.Marshal(subscribeRequest)
 	if err != nil {
-		return fmt.Errorf("failed to marshal subscription subscribeRequest: %v", err)
+		return "", fmt.Errorf("failed to marshal subscription subscribeRequest: %v", err)
 	}
 	corrID, err := cf.zmqConn.SendNewMsg(validator_pb2.Message_CLIENT_EVENTS_SUBSCRIBE_REQUEST, requestBytes)
 	if err != nil {
-		return fmt.Errorf("failed to send subscription message: %v", err)
+		return "", fmt.Errorf("failed to send subscription message: %v", err)
 	}
 	// Received subscription response
 	_, response, err := cf.zmqConn.RecvMsgWithId(corrID)
 	if err != nil {
-		return fmt.Errorf("failed to received subscribe event response: %v", err)
+		return "", fmt.Errorf("failed to received subscribe event response: %v", err)
 	}
 	subscribeResponse := &client_event_pb2.ClientEventsSubscribeResponse{}
 	err = proto.Unmarshal(response.Content, subscribeResponse)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal subscribe response: %v", err)
+		return "", fmt.Errorf("failed to unmarshal subscribe response: %v", err)
 	}
 	if subscribeResponse.Status != client_event_pb2.ClientEventsSubscribeResponse_OK {
-		return errors.New("failed to subscribe event")
+		return "", errors.New("failed to subscribe event")
 	}
-	defer func(correlationID string) {
-		err := cf.unsubscribeEvents(correlationID)
-		if err != nil {
-			Logger.WithFields(logrus.Fields{
-				"correlationID": correlationID,
-			}).Error(err)
-		}
-	}(corrID)
-	cf.subscribeHandler()
-	return nil
+	return corrID, nil
 }
 
 func (cf *ClientFramework) unsubscribeEvents(corrID string) error {
@@ -322,9 +330,7 @@ func (cf *ClientFramework) unsubscribeEvents(corrID string) error {
 	unsubscribeRequest := &client_event_pb2.ClientEventsUnsubscribeRequest{}
 	unsubscribeRequestBytes, err := proto.Marshal(unsubscribeRequest)
 	if err != nil {
-		Logger.WithFields(logrus.Fields{
-			"correlationID": corrID,
-		}).Errorf("failed to unsubscribe event: %v", err)
+		return fmt.Errorf("failed to marshal unsubscribe event: %v", err)
 	}
 	id, err := cf.zmqConn.SendNewMsg(validator_pb2.Message_CLIENT_EVENTS_UNSUBSCRIBE_REQUEST, unsubscribeRequestBytes)
 	if err != nil {
@@ -364,8 +370,11 @@ func (cf *ClientFramework) subscribeHandler() {
 			}).Error("failed unmarshal message")
 			continue
 		}
-		cf.signal <- nil
-		break
+		for _, event := range eventList.Events {
+			//Logger.Debug(event.String())
+			cf.signal <- true
+			cf.State <- event.Data
+		}
 	}
 }
 

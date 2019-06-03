@@ -18,14 +18,17 @@ package user
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 	"sync"
 
+	"github.com/hyperledger/sawtooth-sdk-go/protobuf/transaction_receipt_pb2"
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -110,13 +113,35 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		}(*peerInfo)
 	}
 	wg.Wait()
-	return &Client{
+	cli := &Client{
 		User:            u,
 		PWD:             "/",
 		UserNode:        n,
 		ClientFramework: c,
 		QueryCache:      make(map[string]*tpUser.User),
-	}, nil
+	}
+	go func() {
+		var data []byte
+		for {
+			data = <-cli.State
+			stateChangeList := &txn_receipt_pb2.StateChangeList{}
+			err := proto.Unmarshal(data, stateChangeList)
+			if err != nil {
+				lib.Logger.Errorf("failed to unmarshal protobuf: %v", err)
+				continue
+			}
+			//lib.Logger.Info(stateChangeList.StateChanges[0].String())
+			u, err := tpUser.UserFromBytes(stateChangeList.StateChanges[0].Value)
+			if err != nil {
+				lib.Logger.Errorf("failed to sync: %v", err)
+			} else {
+				js, _ := json.Marshal(u)
+				lib.Logger.Debug(string(js))
+				cli.User = u
+			}
+		}
+	}()
+	return cli, nil
 }
 
 // Sync get user's data from blockchain.
