@@ -79,19 +79,19 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 		return
 	}
 	lib.Logger.WithFields(logrus.Fields{
-		"type": "download request",
-		"from": s.Conn().RemotePeer().String(),
+		"type":  "download request",
+		"from":  s.Conn().RemotePeer().String(),
 		"owner": data.Owner,
-		"hash": data.Hash,
+		"hash":  data.Hash,
 	}).Info("received download request")
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
 		lib.Logger.WithFields(logrus.Fields{
-			"type": "download request",
-			"from": s.Conn().RemotePeer().String(),
+			"type":  "download request",
+			"from":  s.Conn().RemotePeer().String(),
 			"owner": data.Owner,
-			"hash": data.Hash,
+			"hash":  data.Hash,
 		}).Warn("failed to authenticate message")
 		return
 	}
@@ -99,10 +99,10 @@ func (p *SeaDownloadProtocol) onDownloadRequest(s p2pNet.Stream) {
 	err = p.sendDownload(s.Conn().RemotePeer(), data.MessageData.Id, tpCrypto.BytesToHex(data.MessageData.NodePubKey), data.Owner, data.Hash)
 	if err != nil {
 		lib.Logger.WithFields(logrus.Fields{
-			"type": "download request",
-			"from": s.Conn().RemotePeer().String(),
+			"type":  "download request",
+			"from":  s.Conn().RemotePeer().String(),
 			"owner": data.Owner,
-			"hash": data.Hash,
+			"hash":  data.Hash,
 		}).Warn("invalid download request or failed to send download response")
 	}
 }
@@ -231,18 +231,18 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 		return
 	}
 	lib.Logger.WithFields(logrus.Fields{
-		"type": "download confirm",
-		"from": s.Conn().RemotePeer().String(),
-		"hash": data.Hash,
+		"type":      "download confirm",
+		"from":      s.Conn().RemotePeer().String(),
+		"hash":      data.Hash,
 		"packageId": data.PackageId,
 	}).Info("received download confirm")
 
 	valid := p.node.authenticateMessage(data, data.MessageData)
 	if !valid {
 		lib.Logger.WithFields(logrus.Fields{
-			"type": "download confirm",
-			"from": s.Conn().RemotePeer().String(),
-			"hash": data.Hash,
+			"type":      "download confirm",
+			"from":      s.Conn().RemotePeer().String(),
+			"hash":      data.Hash,
 			"packageId": data.PackageId,
 		}).Warn("failed to authenticate message")
 		return
@@ -253,9 +253,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 	p.node.downloadInfos.Unlock()
 	if !ok {
 		lib.Logger.WithFields(logrus.Fields{
-			"type": "download confirm",
-			"from": s.Conn().RemotePeer().String(),
-			"hash": data.Hash,
+			"type":      "download confirm",
+			"from":      s.Conn().RemotePeer().String(),
+			"hash":      data.Hash,
 			"packageId": data.PackageId,
 		}).Warn("invalid protocol")
 		return
@@ -266,9 +266,9 @@ func (p *SeaDownloadConfirmProtocol) onDownloadConfirm(s p2pNet.Stream) {
 		delete(p.node.downloadInfos.m[s.Conn().RemotePeer()], data.Hash)
 		p.node.downloadInfos.Unlock()
 		lib.Logger.WithFields(logrus.Fields{
-			"type": "download confirm",
-			"from": s.Conn().RemotePeer().String(),
-			"hash": data.Hash,
+			"type":      "download confirm",
+			"from":      s.Conn().RemotePeer().String(),
+			"hash":      data.Hash,
 			"packageId": data.PackageId,
 		}).Info("download success")
 	} else {
@@ -400,7 +400,7 @@ func (p *UserDownloadProtocol) onDownloadResponse(s p2pNet.Stream) {
 			}
 			_, err = f.WriteAt(fragment, lib.PackageSize*i)
 		}
-		os.Remove(path.Join(lib.DefaultTmpPath, data.Hash))
+		os.RemoveAll(path.Join(lib.DefaultTmpPath, data.Hash))
 		err = f.Truncate(downloadInfo.size)
 		if err != nil {
 			downloadInfo.done <- fmt.Errorf("failed to truncate file: %s", targetFile)

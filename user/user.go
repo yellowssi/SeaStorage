@@ -624,16 +624,20 @@ func (c *Client) downloadFile(f *tpStorage.File, ownerAddr, ownerPub, dst string
 		fileKey = o.Root.Keys.GetKey(f.KeyIndex)
 	}
 	var key []byte
+	var hash string
 	if fileKey.Published {
 		key = tpCrypto.HexToBytes(fileKey.Key)
-	} else {
+	} else if ownerAddr == "" {
 		key, err = c.DecryptFileKey(fileKey.Key)
 		if err != nil {
 			fmt.Println("failed to decrypt file key:", err)
 			return
 		}
+	} else {
+		fmt.Println("download success:", dstFile.Name())
+		return
 	}
-	hash, err := crypto.DecryptFile(inFile, dstFile, key)
+	hash, err = crypto.DecryptFile(inFile, dstFile, key)
 	if err != nil {
 		fmt.Println("failed to decrypt file:", err)
 		return
