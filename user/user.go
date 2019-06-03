@@ -18,7 +18,6 @@ package user
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -126,8 +125,6 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 			if err != nil {
 				lib.Logger.Errorf("failed to sync: %v", err)
 			} else {
-				js, _ := json.Marshal(u)
-				lib.Logger.Debug(string(js))
 				cli.User = u
 			}
 		}
@@ -513,17 +510,17 @@ func (c *Client) DownloadFiles(p, dst string) {
 	}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		c.downloadFile(iNode.(*tpStorage.File), "", dst)
+		c.downloadFile(iNode.(*tpStorage.File), "", "", dst)
 	case *tpStorage.Directory:
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		c.downloadDirectory(iNode.(*tpStorage.Directory), "", dst, wg)
+		c.downloadDirectory(iNode.(*tpStorage.Directory), "", "", dst, wg)
 		wg.Wait()
 	}
 }
 
 // DownloadSharedFiles download the file or directory in 'shared' directory of owner to destination path in system.
-func (c *Client) DownloadSharedFiles(p, dst, owner string) {
+func (c *Client) DownloadSharedFiles(p, dst, ownerAddr, ownerPub string) {
 	iNode, err := c.GetINode(p)
 	if err != nil {
 		fmt.Println(err)
@@ -531,17 +528,17 @@ func (c *Client) DownloadSharedFiles(p, dst, owner string) {
 	}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		c.downloadFile(iNode.(*tpStorage.File), owner, dst)
+		c.downloadFile(iNode.(*tpStorage.File), ownerAddr, ownerPub, dst)
 	case *tpStorage.Directory:
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		c.downloadDirectory(iNode.(*tpStorage.Directory), owner, dst, wg)
+		c.downloadDirectory(iNode.(*tpStorage.Directory), ownerAddr, ownerPub, dst, wg)
 		wg.Wait()
 	}
 }
 
 // download files in it and recursive call to download directories in it.
-func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, wg *sync.WaitGroup) {
+func (c *Client) downloadDirectory(dir *tpStorage.Directory, ownerAddr, ownerPub, dst string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
@@ -549,19 +546,19 @@ func (c *Client) downloadDirectory(dir *tpStorage.Directory, owner, dst string, 
 			wg.Add(1)
 			go func(f *tpStorage.File) {
 				defer wg.Done()
-				c.downloadFile(f, owner, path.Join(dst, dir.Name))
+				c.downloadFile(f, ownerAddr, ownerPub, path.Join(dst, dir.Name))
 			}(iNode.(*tpStorage.File))
 		case *tpStorage.Directory:
 			wg.Add(1)
 			go func(d *tpStorage.Directory) {
-				c.downloadDirectory(d, owner, path.Join(dst, dir.Name), wg)
+				c.downloadDirectory(d, ownerAddr, ownerPub, path.Join(dst, dir.Name), wg)
 			}(iNode.(*tpStorage.Directory))
 		}
 	}
 }
 
 // download file of the target path.
-func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
+func (c *Client) downloadFile(f *tpStorage.File, ownerAddr, ownerPub, dst string) {
 	err := os.MkdirAll(path.Join(lib.DefaultTmpPath, f.Hash), 0755)
 	if err != nil {
 		fmt.Println(err)
@@ -573,7 +570,7 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 		if i-errCount == lib.DefaultDataShards {
 			break
 		}
-		err = c.Download(storagePath, owner, fragment)
+		err = c.Download(storagePath, ownerPub, fragment)
 		if err != nil {
 			errCount++
 		}
@@ -611,10 +608,30 @@ func (c *Client) downloadFile(f *tpStorage.File, owner, dst string) {
 	}()
 	dstFile, _ := os.OpenFile(path.Join(dst, f.Name), os.O_CREATE|os.O_WRONLY, 0644)
 	defer dstFile.Close()
-	key, err := c.DecryptFileKey(c.User.Root.Keys.GetKey(f.KeyIndex).Key)
-	if err != nil {
-		fmt.Println("failed to decrypt file key:", err)
-		return
+	var fileKey *tpStorage.FileKey
+	if ownerAddr == "" {
+		fileKey = c.User.Root.Keys.GetKey(f.KeyIndex)
+	} else {
+		oBytes, err := lib.GetStateData(ownerAddr)
+		if err != nil {
+			fmt.Println("failed to get owner:", err)
+			return
+		}
+		o, err := tpUser.UserFromBytes(oBytes)
+		if err != nil {
+			fmt.Println("failed to unmarshal:", err)
+		}
+		fileKey = o.Root.Keys.GetKey(f.KeyIndex)
+	}
+	var key []byte
+	if fileKey.Published {
+		key = tpCrypto.HexToBytes(fileKey.Key)
+	} else {
+		key, err = c.DecryptFileKey(fileKey.Key)
+		if err != nil {
+			fmt.Println("failed to decrypt file key:", err)
+			return
+		}
 	}
 	hash, err := crypto.DecryptFile(inFile, dstFile, key)
 	if err != nil {
@@ -637,11 +654,16 @@ func (c *Client) PublishKey(p string) error {
 	addresses := []string{c.GetAddress()}
 	switch iNode.(type) {
 	case *tpStorage.File:
-		key, err := c.publishFileKey(iNode.(*tpStorage.File))
+		f := iNode.(*tpStorage.File)
+		key, err := c.publishFileKey(f)
 		if err != nil {
 			return err
 		}
-		return c.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{{Action: tpPayload.UserPublishKey, Key: key}}, addresses, addresses)
+		return c.SendTransactionAndWaiting([]tpPayload.SeaStoragePayload{{
+			Name:   c.Name,
+			Action: tpPayload.UserPublishKey,
+			Target: []string{f.KeyIndex},
+			Key:    key}}, addresses, addresses)
 	case *tpStorage.Directory:
 		payloadMap, err := c.publishDirectoryKey(iNode.(*tpStorage.Directory))
 		if err != nil {
@@ -662,23 +684,29 @@ func (c *Client) publishDirectoryKey(dir *tpStorage.Directory) (map[string]tpPay
 	for _, iNode := range dir.INodes {
 		switch iNode.(type) {
 		case *tpStorage.File:
-			key, err := c.publishFileKey(iNode.(*tpStorage.File))
+			f := iNode.(*tpStorage.File)
+			key, err := c.publishFileKey(f)
 			if err != nil {
 				return nil, err
 			}
-			_, ok := payloads[key]
+			_, ok := payloads[f.KeyIndex]
 			if !ok {
-				payloads[key] = tpPayload.SeaStoragePayload{Action: tpPayload.UserPublishKey, Key: key}
+				payloads[f.KeyIndex] = tpPayload.SeaStoragePayload{
+					Name:   c.Name,
+					Action: tpPayload.UserPublishKey,
+					Target: []string{f.KeyIndex},
+					Key:    key,
+				}
 			}
 		case *tpStorage.Directory:
 			subPayloads, err := c.publishDirectoryKey(iNode.(*tpStorage.Directory))
 			if err != nil {
 				return nil, err
 			}
-			for key, payload := range subPayloads {
-				_, ok := payloads[key]
+			for keyIndex, payload := range subPayloads {
+				_, ok := payloads[keyIndex]
 				if !ok {
-					payloads[key] = payload
+					payloads[keyIndex] = payload
 				}
 			}
 		}
@@ -693,7 +721,7 @@ func (c *Client) publishFileKey(file *tpStorage.File) (key string, err error) {
 		return
 	}
 	key = tpCrypto.BytesToHex(keyBytes)
-	err = c.User.Root.PublishKey(c.GetPublicKey(), key)
+	err = c.User.Root.PublishKey(c.GetPublicKey(), file.KeyIndex, key)
 	if err != nil {
 		return
 	}

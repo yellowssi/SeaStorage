@@ -20,10 +20,15 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
 	lib.GenerateKey("test", "test")
-	lib.TPURL = lib.DefaultTPURL
-	lib.ListenAddress = lib.DefaultListenAddress
+	lib.TPURL = "http://127.0.0.1:8008"
+	lib.ValidatorURL = "tcp://127.0.0.1:4004"
+	lib.ListenAddress = "192.168.31.200"
+	InitAddrs([]string{"/ip4/192.168.31.99/tcp/5001/p2p/16Uiu2HAm2Ckrip9389C25mrcMrMRDxeasADmd2sGgcLBbgfTD8F2"})
+	//lib.TPURL = lib.DefaultTPURL
+	//lib.ValidatorURL = lib.DefaultValidatorURL
+	//lib.ListenAddress = lib.DefaultListenAddress
 	lib.ListenPort = lib.DefaultListenPort
-	InitAddrs(lib.DefaultBootstrapAddrs)
+	//InitAddrs(lib.DefaultBootstrapAddrs)
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
 		panic(err)
@@ -76,6 +81,22 @@ func TestClient_CreateFile(t *testing.T) {
 		t.Error(err)
 	}
 	time.Sleep(2 * time.Minute)
+}
+
+func TestClient_ShareFiles(t *testing.T) {
+	keys, err := cli.ShareFiles("/SeaStorage", "/")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(keys)
+}
+
+func TestClient_PublishKey(t *testing.T) {
+	cli.Sync()
+	err := cli.PublishKey("/SeaStorage")
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func TestClient_DownloadFiles(t *testing.T) {
