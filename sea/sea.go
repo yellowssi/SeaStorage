@@ -18,6 +18,13 @@ package sea
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
+	"path"
+	"sync"
+	"syscall"
+
 	"github.com/libp2p/go-libp2p"
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
@@ -29,12 +36,6 @@ import (
 	tpSea "github.com/yellowssi/SeaStorage-TP/sea"
 	"github.com/yellowssi/SeaStorage/lib"
 	"github.com/yellowssi/SeaStorage/p2p"
-	"io/ioutil"
-	"os"
-	"os/signal"
-	"path"
-	"sync"
-	"syscall"
 )
 
 // Client provides the platform for sea providing the storage resources in the P2P network.
@@ -100,11 +101,6 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		lib.Logger.Error(err)
 		return
 	}
-	_, err = p2p.NewSeaNode(c.ClientFramework, storagePath, size, host)
-	if err != nil {
-		lib.Logger.Error(err)
-		return
-	}
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
 		lib.Logger.Error(err)
@@ -135,6 +131,11 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		}(*peerInfo)
 	}
 	wg.Wait()
+	_, err = p2p.NewSeaNode(ctx, c.ClientFramework, storagePath, size, host, kadDHT)
+	if err != nil {
+		lib.Logger.Error(err)
+		return
+	}
 	lib.Logger.WithFields(logrus.Fields{
 		"listen address":    lib.ListenAddress,
 		"listen listenPort": lib.ListenPort,

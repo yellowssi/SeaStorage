@@ -81,7 +81,6 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	if err != nil {
 		return nil, err
 	}
-	n := p2p.NewUserNode(host, c)
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
 		return nil, err
@@ -110,6 +109,7 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		}(*peerInfo)
 	}
 	wg.Wait()
+	n := p2p.NewUserNode(ctx, host, kadDHT, c)
 	cli := &Client{
 		User:            u,
 		PWD:             "/",

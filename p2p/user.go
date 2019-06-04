@@ -15,7 +15,9 @@
 package p2p
 
 import (
+	"context"
 	"errors"
+	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	"math"
 	"os"
 	"sync"
@@ -49,9 +51,9 @@ type UserNode struct {
 }
 
 // NewUserNode is the construct for UserNode.
-func NewUserNode(host p2pHost.Host, cli *lib.ClientFramework) *UserNode {
+func NewUserNode(ctx context.Context, host p2pHost.Host, kadDHT *p2pDHT.IpfsDHT, cli *lib.ClientFramework) *UserNode {
 	n := &UserNode{
-		Node:            NewNode(host),
+		Node:            NewNode(ctx, host, kadDHT),
 		ClientFramework: cli,
 		uploadInfos: struct {
 			sync.RWMutex

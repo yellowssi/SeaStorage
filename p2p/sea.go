@@ -15,6 +15,7 @@
 package p2p
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 
 	p2pHost "github.com/libp2p/go-libp2p-core/host"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
+	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/sirupsen/logrus"
 	tpPayload "github.com/yellowssi/SeaStorage-TP/payload"
 	tpUser "github.com/yellowssi/SeaStorage-TP/user"
@@ -56,7 +58,7 @@ type SeaNode struct {
 }
 
 // NewSeaNode is the construct for SeaNode.
-func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2pHost.Host) (*SeaNode, error) {
+func NewSeaNode(ctx context.Context, c *lib.ClientFramework, storagePath string, size int64, host p2pHost.Host, kadDHT *p2pDHT.IpfsDHT) (*SeaNode, error) {
 	freeSize := size
 	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
 		err = os.MkdirAll(storagePath, 0755)
@@ -78,7 +80,7 @@ func NewSeaNode(c *lib.ClientFramework, storagePath string, size int64, host p2p
 		storagePath:     storagePath,
 		size:            size,
 		freeSize:        freeSize,
-		Node:            NewNode(host),
+		Node:            NewNode(ctx, host, kadDHT),
 		operations: struct {
 			sync.RWMutex
 			m map[string]tpUser.Operation
