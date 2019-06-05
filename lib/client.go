@@ -85,15 +85,15 @@ func NewClientFramework(name string, category bool, keyFile string) (*ClientFram
 		signal:   make(chan bool),
 		State:    make(chan []byte),
 	}
-	err = cf.generateZmqConnection()
-	if err != nil {
-		return nil, err
-	}
-	err = cf.WatchingForState()
-	if err != nil {
-		return nil, err
-	}
-	go cf.subscribeHandler()
+	//err = cf.generateZmqConnection()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//err = cf.WatchingForState()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//go cf.subscribeHandler()
 	return cf, nil
 }
 
