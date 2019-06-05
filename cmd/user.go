@@ -358,18 +358,12 @@ communicating with the transaction processor.`,
 					cli.DownloadFiles(commands[1], commands[2])
 				}
 			case "download-shared":
-				if len(commands) < 3 || len(commands) == 4 {
+				if len(commands) < 5 {
 					fmt.Println(errMissingOperand)
 				} else if len(commands) > 5 {
 					fmt.Println(errInvalidPath)
 				} else {
-					ownerAddr := ""
-					ownerPub := ""
-					if len(commands) == 5 {
-						ownerAddr = commands[3]
-						ownerPub = commands[4]
-					}
-					cli.DownloadSharedFiles(commands[1], commands[2], ownerAddr, ownerPub)
+					cli.DownloadSharedFiles(commands[1], commands[2], commands[3], commands[4])
 				}
 			case "publish":
 				js, _ := json.MarshalIndent(cli.User.Root.Keys, "", "\t")
