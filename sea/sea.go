@@ -90,18 +90,17 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		lib.Logger.Error(err)
 		return
 	}
-	ip4Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.IPv4ListenAddress, lib.ListenPort))
-	if err != nil {
-		lib.Logger.Error(err)
-		return
-	}
-	ip6Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/%d", lib.IPv6ListenAddress, lib.ListenPort))
-	if err != nil {
-		lib.Logger.Error(err)
-		return
+	listenAddrs := make([]ma.Multiaddr, 0)
+	for _, listenAddr := range lib.ListenAddresses {
+		addr, err := ma.NewMultiaddr(listenAddr)
+		if err != nil {
+			lib.Logger.Error(err)
+			return
+		}
+		listenAddrs = append(listenAddrs, addr)
 	}
 	ctx := context.Background()
-	host, err := libp2p.New(ctx, libp2p.ListenAddrs(ip4Ma, ip6Ma), libp2p.Identity(privateKey))
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey))
 	if err != nil {
 		lib.Logger.Error(err)
 		return
@@ -142,8 +141,7 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		return
 	}
 	lib.Logger.WithFields(logrus.Fields{
-		"listen address":    lib.IPv4ListenAddress,
-		"listen listenPort": lib.ListenPort,
+		"listen address":    lib.ListenAddresses,
 		"peer id":           host.ID().String(),
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")

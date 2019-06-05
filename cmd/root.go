@@ -77,9 +77,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&lib.ValidatorURL, "validator", "V", lib.DefaultValidatorURL, "the hyperledger sawtooth validator tcp url")
 	rootCmd.PersistentFlags().StringVarP(&lib.PrivateKeyFile, "key", "k", lib.DefaultPrivateKeyFile, "the private key file for identity")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug version")
-	rootCmd.PersistentFlags().StringVar(&lib.IPv4ListenAddress, "ip4", lib.DefaultIPv4ListenAddress, "the IPv4 listen address for p2p network")
-	rootCmd.PersistentFlags().StringVar(&lib.IPv6ListenAddress, "ip6", lib.DefaultIPv6ListenAddress, "the IPv6 listen address for p2p network")
-	rootCmd.PersistentFlags().IntVarP(&lib.ListenPort, "port", "p", lib.DefaultListenPort, "the listen port for p2p network")
+	rootCmd.PersistentFlags().StringSliceVarP(&lib.ListenAddresses, "listen", "l", lib.DefaultListenAddresses, "the listen addresses and port for p2p network")
 	rootCmd.PersistentFlags().StringArrayVarP(&bootstrapAddrs, "bootstrap", "b", lib.DefaultBootstrapAddrs, "the bootstrap node addresses of the p2p network")
 }
 
@@ -127,20 +125,9 @@ func initConfig() {
 		if privateKeyFile != "" {
 			lib.DefaultPrivateKeyFile = privateKeyFile
 		}
-		listenCfg := viper.GetStringMap("listen")
-		if listenCfg != nil {
-			ip4, ok := listenCfg["ip4"]
-			if ok {
-				lib.DefaultIPv4ListenAddress = ip4.(string)
-			}
-			ip6, ok := listenCfg["ip6"]
-			if ok {
-				lib.DefaultIPv6ListenAddress = ip6.(string)
-			}
-			listenPort, ok := listenCfg["port"]
-			if ok {
-				lib.DefaultListenPort = int(listenPort.(float64))
-			}
+		listenAddrs := viper.GetStringSlice("listenAddresses")
+		if len(listenAddrs) > 0 {
+			lib.DefaultListenAddresses = listenAddrs
 		}
 		addrs := viper.GetStringSlice("bootstrap")
 		if len(addrs) > 0 {
@@ -218,11 +205,7 @@ func initConfigJSON() []byte {
 	cfg["url"] = lib.DefaultTPURL
 	cfg["validator"] = lib.DefaultValidatorURL
 	cfg["key"] = GetDefaultKeyFile()
-	cfg["listen"] = map[string]interface{}{
-		"ip4":  lib.DefaultIPv4ListenAddress,
-		"ip6":  lib.DefaultIPv6ListenAddress,
-		"port": lib.DefaultListenPort,
-	}
+	cfg["listenAddresses"] = lib.DefaultListenAddresses
 	cfg["bootstrap"] = lib.DefaultBootstrapAddrs
 	cfg["sea"] = map[string]interface{}{
 		"storagePath": lib.DefaultStoragePath,
