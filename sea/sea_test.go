@@ -10,7 +10,7 @@ var sea *Client
 
 func init() {
 	lib.TPURL = lib.DefaultTPURL
-	lib.ListenAddress = lib.DefaultListenAddress
+	lib.IPv4ListenAddress = lib.DefaultIPv4ListenAddress
 	lib.ListenPort = lib.DefaultListenPort
 	lib.GenerateKey("sea", "test")
 	sea, _ = NewSeaClient("test", "./test/sea.priv")

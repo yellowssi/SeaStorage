@@ -72,12 +72,16 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 	if err != nil {
 		return nil, err
 	}
-	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.ListenAddress, lib.ListenPort))
+	ip4Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.IPv4ListenAddress, lib.ListenPort))
+	if err != nil {
+		return nil, err
+	}
+	ip6Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/%d", lib.IPv6ListenAddress, lib.ListenPort))
 	if err != nil {
 		return nil, err
 	}
 	ctx := context.Background()
-	host, err := libp2p.New(ctx, libp2p.ListenAddrs(multiAddr), libp2p.Identity(privateKey))
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(ip4Ma, ip6Ma), libp2p.Identity(privateKey))
 	if err != nil {
 		return nil, err
 	}
