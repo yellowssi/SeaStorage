@@ -525,7 +525,16 @@ func (c *Client) DownloadFiles(p, dst string) {
 
 // DownloadSharedFiles download the file or directory in 'shared' directory of owner to destination path in system.
 func (c *Client) DownloadSharedFiles(p, dst, ownerAddr, ownerPub string) {
-	iNode, err := c.GetINode(p)
+	uBytes, err := lib.GetStateData(ownerAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+	u, err := tpUser.UserFromBytes(uBytes)
+	if err != nil {
+		fmt.Println(err)
+	}
+	p, name := c.splitPathName(p)
+	iNode, err := u.Root.GetINode(p, name)
 	if err != nil {
 		fmt.Println(err)
 		return
