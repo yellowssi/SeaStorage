@@ -527,17 +527,19 @@ func (c *Client) DownloadFiles(p, dst string) {
 func (c *Client) DownloadSharedFiles(p, dst, ownerAddr string) {
 	uBytes, err := lib.GetStateData(ownerAddr)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to get user data: ", err)
+		return
 	}
 	u, err := tpUser.UserFromBytes(uBytes)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to convert user from bytes: ", err)
+		return
 	}
 	ownerPub := u.PublicKey
 	p, name := c.splitPathName(p)
 	iNode, err := u.Root.GetINode(p, name)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("failed to get iNode: ", err)
 		return
 	}
 	switch iNode.(type) {
