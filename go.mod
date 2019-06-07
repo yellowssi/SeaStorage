@@ -4,15 +4,12 @@ go 1.12
 
 require (
 	github.com/btcsuite/btcd v0.0.0-20190523000118-16327141da8c
-	github.com/btcsuite/goleveldb v1.0.0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
 	github.com/google/uuid v1.1.1
 	github.com/hyperledger/sawtooth-sdk-go v0.1.1
-	github.com/kkdai/bstream v1.0.0 // indirect
 	github.com/klauspost/cpuid v1.2.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.2
-	github.com/kr/pty v1.1.4 // indirect
 	github.com/libp2p/go-libp2p v0.1.1
 	github.com/libp2p/go-libp2p-core v0.0.3
 	github.com/libp2p/go-libp2p-kad-dht v0.1.0

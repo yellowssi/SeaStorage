@@ -33,12 +33,8 @@ var (
 	StoragePath string
 	// StorageSize is the limit size of the storage resources.
 	StorageSize int64
-	// IPv4ListenAddress is the IPv4 address used for joining P2P network and listening for protobuf.
-	IPv4ListenAddress string
-	// IPv6ListenAddress is the IPv6 address used for joining P2P network and listening for protobuf.
-	IPv6ListenAddress string
-	// ListenPort is the port for the P2P Network protobuf listener.
-	ListenPort int
+	// ListenAddress is the address and port used for joining P2P network and listening for protobuf.
+	ListenAddress []string
 	// BootstrapAddrs is the addresses in the P2P Network. These addresses are using for node joining P2P Network.
 	BootstrapAddrs []ma.Multiaddr
 )
@@ -91,12 +87,11 @@ var (
 	DefaultTPURL = "http://101.132.168.252:8008"
 	// DefaultValidatorURL is the default Hyperledger Sawtooth validator tcp url.
 	DefaultValidatorURL = "tcp://101.132.168.252:4004"
-	// DefaultIPv4ListenAddress is the default IPv4 listen address for P2P network node.
-	DefaultIPv4ListenAddress = "0.0.0.0"
-	// DefaultIPv4ListenAddress is the default IPv6 listen address for P2P network node.
-	DefaultIPv6ListenAddress = "::"
-	// DefaultListenPort is the default listen port for P2P network node.
-	DefaultListenPort = 5001
+	// DefaultListenAddress is the default listen address and port for P2P network node.
+	DefaultListenAddress = []string{
+		"/ip4/0.0.0.0/tcp/5001",
+		"/ip6/::/tcp/5001",
+	}
 	// PrivateKeyFile is the path of private key.
 	PrivateKeyFile string
 	// DefaultKeyPath is the default path for key storing.

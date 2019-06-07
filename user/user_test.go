@@ -20,15 +20,10 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
 	lib.GenerateKey("test", "test")
-	lib.TPURL = "http://127.0.0.1:8008"
-	lib.ValidatorURL = "tcp://127.0.0.1:4004"
-	lib.IPv4ListenAddress = "192.168.31.200"
-	InitAddrs([]string{"/ip4/192.168.31.99/tcp/5001/p2p/16Uiu2HAm2Ckrip9389C25mrcMrMRDxeasADmd2sGgcLBbgfTD8F2"})
-	//lib.TPURL = lib.DefaultTPURL
-	//lib.ValidatorURL = lib.DefaultValidatorURL
-	//lib.IPv4ListenAddress = lib.DefaultIPv4ListenAddress
-	lib.ListenPort = lib.DefaultListenPort
-	//InitAddrs(lib.DefaultBootstrapAddrs)
+	lib.TPURL = lib.DefaultTPURL
+	lib.ValidatorURL = lib.DefaultValidatorURL
+	lib.ListenAddress = lib.DefaultListenAddress
+	InitAddrs(lib.DefaultBootstrapAddrs)
 	cli, err = NewUserClient("test", "./test/test.priv", lib.BootstrapAddrs)
 	if err != nil {
 		panic(err)

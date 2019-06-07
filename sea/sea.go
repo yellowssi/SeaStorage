@@ -87,32 +87,31 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 	priv, _ := ioutil.ReadFile(keyFile)
 	privateKey, err := p2pCrypto.UnmarshalSecp256k1PrivateKey(tpCrypto.HexToBytes(string(priv)))
 	if err != nil {
-		lib.Logger.Error(err)
+		lib.Logger.Errorf("failed to unmarshal private key: %v", err)
 		return
 	}
-	ip4Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%s/tcp/%d", lib.IPv4ListenAddress, lib.ListenPort))
-	if err != nil {
-		lib.Logger.Error(err)
-		return
-	}
-	ip6Ma, err := ma.NewMultiaddr(fmt.Sprintf("/ip6/%s/tcp/%d", lib.IPv6ListenAddress, lib.ListenPort))
-	if err != nil {
-		lib.Logger.Error(err)
-		return
+	listenAddrs := make([]ma.Multiaddr, 0)
+	for _, addr := range lib.ListenAddress {
+		listenAddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			lib.Logger.Errorf("invalid listen address and port", err)
+			return
+		}
+		listenAddrs = append(listenAddrs, listenAddr)
 	}
 	ctx := context.Background()
-	host, err := libp2p.New(ctx, libp2p.ListenAddrs(ip4Ma, ip6Ma), libp2p.Identity(privateKey))
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey))
 	if err != nil {
-		lib.Logger.Error(err)
+		lib.Logger.Error("failed to init p2p host: %v", err)
 		return
 	}
 	kadDHT, err := p2pDHT.New(ctx, host)
 	if err != nil {
-		lib.Logger.Error(err)
+		lib.Logger.Errorf("failed to init kad dht: %v", err)
 		return
 	}
 	if err = kadDHT.Bootstrap(ctx); err != nil {
-		lib.Logger.Error(err)
+		lib.Logger.Error("failed to bootstrap kad dht: %v", err)
 		return
 	}
 	var wg sync.WaitGroup
@@ -142,9 +141,8 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		return
 	}
 	lib.Logger.WithFields(logrus.Fields{
-		"listen address":    lib.IPv4ListenAddress,
-		"listen listenPort": lib.ListenPort,
-		"peer id":           host.ID().String(),
+		"listen addresses": lib.ListenAddress,
+		"peer id":          host.ID().String(),
 	}).Info("Sea Storage start working")
 	fmt.Println("Enter Ctrl+C to stop")
 	go func() {
