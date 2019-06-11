@@ -100,7 +100,7 @@ func (c *Client) Bootstrap(keyFile, storagePath string, size int64, bootstrapAdd
 		listenAddrs = append(listenAddrs, listenAddr)
 	}
 	ctx := context.Background()
-	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey))
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey), libp2p.NATPortMap())
 	if err != nil {
 		lib.Logger.Error("failed to init p2p host: %v", err)
 		return

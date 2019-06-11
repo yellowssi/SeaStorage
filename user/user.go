@@ -30,6 +30,7 @@ import (
 	p2pCrypto "github.com/libp2p/go-libp2p-core/crypto"
 	p2pPeer "github.com/libp2p/go-libp2p-core/peer"
 	p2pDHT "github.com/libp2p/go-libp2p-kad-dht"
+	p2pDHTOpts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
 	tpCrypto "github.com/yellowssi/SeaStorage-TP/crypto"
@@ -81,11 +82,11 @@ func NewUserClient(name, keyFile string, bootstrapAddrs []ma.Multiaddr) (*Client
 		listenAddrs = append(listenAddrs, listenAddr)
 	}
 	ctx := context.Background()
-	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey))
+	host, err := libp2p.New(ctx, libp2p.ListenAddrs(listenAddrs...), libp2p.Identity(privateKey), libp2p.NATPortMap())
 	if err != nil {
 		return nil, err
 	}
-	kadDHT, err := p2pDHT.New(ctx, host)
+	kadDHT, err := p2pDHT.New(ctx, host, p2pDHTOpts.Client(true))
 	if err != nil {
 		return nil, err
 	}
